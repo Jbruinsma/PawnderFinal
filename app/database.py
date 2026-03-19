@@ -1,15 +1,16 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# "db" matches the service name in your docker-compose.yml
+# This URL matches the environment variable in your docker-compose.yml
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@db:5432/pawnder_db")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# Helper to get a DB session
 def get_db():
     db = SessionLocal()
     try:
