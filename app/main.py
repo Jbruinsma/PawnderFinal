@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from .api.v1 import auth, geo, community
 from .database import engine, get_db
 from . import models
 
@@ -12,6 +13,10 @@ models.Base.metadata.create_all(bind=engine)
 load_dotenv()
 
 app = FastAPI(title="Pawnder API - Dev")
+
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(community.router, prefix="/api/v1")
+app.include_router(geo.router, prefix="/api/v1")
 
 
 @app.get("/")
