@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:pawnder_app/screens/auth/forgot_password_screen.dart';
 import 'package:pawnder_app/screens/auth/register_screen.dart';
+import 'package:pawnder_app/screens/home/home_screen.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/auth_card.dart';
 import 'package:pawnder_app/widgets/auth_input.dart';
 import 'package:pawnder_app/widgets/auth_scaffold.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
 
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  bool _rememberMe = false;
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +48,26 @@ class LoginScreen extends StatelessWidget {
                     Row(
                       children: [
                         Checkbox(
-                          value: false,
-                          onChanged: (_) {},
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value ?? false;
+                            });
+                          },
                           visualDensity: VisualDensity.compact,
                           side: const BorderSide(color: AppColors.lineGray),
                         ),
                         const Text('Remember me', style: AppTextStyles.helper),
                         const Spacer(),
                         GestureDetector(
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ForgotPasswordScreen(),
+                              ),
+                            );
+                          },
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(
@@ -64,7 +84,10 @@ class LoginScreen extends StatelessWidget {
                       width: double.infinity,
                       height: 64,
                       child: FilledButton(
-                        onPressed: () {},
+                        onPressed: () => Navigator.pushReplacementNamed(
+                          context,
+                          HomeScreen.routeName,
+                        ),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.seaBlue,
                           shape: const StadiumBorder(),
