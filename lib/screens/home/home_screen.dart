@@ -35,6 +35,96 @@ class _HomeScreenState extends State<HomeScreen> {
       'meta': 'Calico, 1 year old',
       'category': '🐱',
     },
+    {
+      'name': 'Pico',
+      'meta': 'Canary, 8 months old',
+      'category': '🐤',
+    },
+    {
+      'name': 'Nibbles',
+      'meta': 'Hamster, 1 year old',
+      'category': '🐹',
+    },
+    {
+      'name': 'Bubbles',
+      'meta': 'Goldfish, 6 months old',
+      'category': '🐟',
+    },
+    {
+      'name': 'Milo',
+      'meta': 'Golden Retriever, 1 year old',
+      'category': '🐶',
+    },
+    {
+      'name': 'Daisy',
+      'meta': 'Beagle, 3 years old',
+      'category': '🐶',
+    },
+    {
+      'name': 'Bruno',
+      'meta': 'French Bulldog, 2 years old',
+      'category': '🐶',
+    },
+    {
+      'name': 'Luna',
+      'meta': 'Ragdoll, 10 months old',
+      'category': '🐱',
+    },
+    {
+      'name': 'Shadow',
+      'meta': 'Bombay, 2 years old',
+      'category': '🐱',
+    },
+    {
+      'name': 'Coco',
+      'meta': 'Persian, 5 years old',
+      'category': '🐱',
+    },
+    {
+      'name': 'Kiwi',
+      'meta': 'Parakeet, 1 year old',
+      'category': '🐤',
+    },
+    {
+      'name': 'Sunny',
+      'meta': 'Cockatiel, 2 years old',
+      'category': '🐤',
+    },
+    {
+      'name': 'Pepper',
+      'meta': 'Lovebird, 11 months old',
+      'category': '🐤',
+    },
+    {
+      'name': 'Mocha',
+      'meta': 'Guinea Pig, 9 months old',
+      'category': '🐹',
+    },
+    {
+      'name': 'Pip',
+      'meta': 'Dwarf Hamster, 7 months old',
+      'category': '🐹',
+    },
+    {
+      'name': 'Nori',
+      'meta': 'Chinchilla, 2 years old',
+      'category': '🐹',
+    },
+    {
+      'name': 'Coral',
+      'meta': 'Betta, 1 year old',
+      'category': '🐟',
+    },
+    {
+      'name': 'Neptune',
+      'meta': 'Angelfish, 3 years old',
+      'category': '🐟',
+    },
+    {
+      'name': 'Skipper',
+      'meta': 'Clownfish, 2 years old',
+      'category': '🐟',
+    },
   ];
 
   @override

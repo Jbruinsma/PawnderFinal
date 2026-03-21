@@ -7,21 +7,23 @@ Widget buildCategoryRow({
 }) {
   final avatars = ['🐶', '🐱', '🐤', '🐹', '🐟'];
 
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: avatars
-          .map(
-            (emoji) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: avatars.map((emoji) {
               final isSelected = selectedCategory == emoji;
               return InkWell(
                 borderRadius: BorderRadius.circular(999),
                 onTap: () => onCategoryTap(emoji),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 170),
-                  width: 52,
-                  height: 52,
-                  margin: const EdgeInsets.only(right: 10),
+                  width: 68,
+                  height: 68,
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.seaBlue : Colors.white,
                     shape: BoxShape.circle,
@@ -38,9 +40,10 @@ Widget buildCategoryRow({
                   ),
                 ),
               );
-            },
-          )
-          .toList(),
-    ),
+            }).toList(),
+          ),
+        ),
+      );
+    },
   );
 }
