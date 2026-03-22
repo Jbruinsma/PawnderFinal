@@ -1,6 +1,18 @@
-__pycache__
+# Python
+__pycache__/
 *.pyc
-.git
+.pytest_cache/
+
+# Environments (Covering both naming conventions)
+venv/
+.venv/
+
+# IDE & Version Control
+.git/
+.idea/
+
+# Environment Variables
 .env
-venv
-.pytest_cache
+
+# Large Assets/Frontend (Add if they exist)
+node_modules/
