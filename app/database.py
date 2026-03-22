@@ -7,7 +7,7 @@ import os
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://{os.getenv("POSTGRES_USER")}:os.getenv("POSTGRES_PASSWORD")@db:5432/pawnder_db")
+DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://{os.getenv("POSTGRES_USER")}:{os.getenv("POSTGRES_PASSWORD")}@db:5432/pawnder_db")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
