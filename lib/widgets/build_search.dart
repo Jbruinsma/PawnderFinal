@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/theme.dart';
 
-Widget buildSearch() {
+Widget buildSearch({
+  required ValueChanged<String> onChanged,
+  TextEditingController? controller,
+}) {
     return Row(
       children: [
         Expanded(
@@ -13,16 +16,30 @@ Widget buildSearch() {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFCCD5DE), width: 1),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.search_rounded, color: AppColors.bodyText),
-                SizedBox(width: 8),
-                Text(
-                  'Search for pets...',
-                  style: TextStyle(
-                    color: AppColors.bodyText,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                const Icon(Icons.search_rounded, color: AppColors.bodyText),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    cursorColor: AppColors.seaBlue,
+                    style: const TextStyle(
+                      color: AppColors.bodyText,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Search for pets...',
+                      hintStyle: TextStyle(
+                        color: AppColors.bodyText,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
                   ),
                 ),
               ],
