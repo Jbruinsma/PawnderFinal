@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pawnder_app/theme.dart';
 
 class ImageFallback extends StatelessWidget {
-  const ImageFallback();
+  const ImageFallback({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -8,7 +8,7 @@ Widget buildBottomNav({
 }) {
   final items = [
     NavItem(icon: Icons.home_rounded, label: 'Home'),
-    NavItem(icon: Icons.search_rounded, label: 'Explore'),
+    NavItem(icon: Icons.priority_high_rounded, label: 'Alerts'),
     NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages'),
     NavItem(icon: Icons.person_rounded, label: 'Profile'),
   ];

@@ -37,7 +37,7 @@ Widget buildPetList({
 
   return ListView.separated(
     itemCount: visiblePets.length,
-    separatorBuilder: (_, __) => const SizedBox(height: 14),
+    separatorBuilder: (context, index) => const SizedBox(height: 14),
     itemBuilder: (context, index) {
       final pet = visiblePets[index];
       final heroTag = 'pet-${pet['name'] ?? index.toString()}';
