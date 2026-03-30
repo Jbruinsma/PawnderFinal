@@ -1,7 +1,7 @@
 import uuid
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, String, Text, ForeignKey, DateTime, Table
+from sqlalchemy import Column, String, Text, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
