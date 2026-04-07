@@ -8,3 +8,6 @@ pydantic-settings==2.13.1
 python-multipart==0.0.22
 python-dotenv
 pydantic[email]
+shapely
+pytest==8.4.1
+httpx==0.28.1

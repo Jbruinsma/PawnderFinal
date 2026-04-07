@@ -1,7 +1,19 @@
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from app.core.security import get_current_user
+from app.crud.crud_geo import (
+    get_geo_feed,
+    get_neighborhood_feed as get_neighborhood_feed_crud,
+    search_posts_by_radius as search_posts_by_radius_crud,
+)
+from app.database import get_db
+from app.models.user import User
+from app.schemas.post import PostSearchResponse
+
 
 router = APIRouter(
     prefix="/geo",
@@ -9,8 +21,20 @@ router = APIRouter(
 )
 
 
-@router.get("/feed", summary="Get personalized geo-relevant feed")
-def get_user_feed():
+@router.get(
+    "/feed",
+    response_model=list[PostSearchResponse],
+    summary="Get personalized geo-relevant feed",
+)
+def get_user_feed(
+    radius_km: float = Query(8.0, gt=0, description="Feed radius in kilometers"),
+    tags: Optional[List[str]] = Query(
+        None,
+        description="Optional category filters (e.g., 'Dog', 'Lost')",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     DFD Action: Generates "Geo-Relevant Recommended Feed".
 
@@ -19,15 +43,34 @@ def get_user_feed():
     - Query D4 (Posts) using PostGIS `ST_DWithin` to find posts within a dynamic radius (e.g., 5 miles).
     - Prioritize algorithms: Sort by a combination of `created_at` (urgency) and ST_Distance (proximity).
     """
-    return {"message": "Main feed algorithm not implemented yet."}
+    if current_user.last_known_location is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current user location is required before requesting the geo feed.",
+        )
+
+    return get_geo_feed(
+        db,
+        user=current_user,
+        radius_km=radius_km,
+        tags=tags,
+    )
 
 
-@router.get("/search", summary="Search posts by custom radius and tags")
+@router.get(
+    "/search",
+    response_model=list[PostSearchResponse],
+    summary="Search posts by custom radius and tags",
+)
 def search_posts_by_radius(
-        lat: float = Query(..., description="Latitude of search center"),
-        lon: float = Query(..., description="Longitude of search center"),
-        radius_km: float = Query(5.0, description="Radius in kilometers"),
-        tags: Optional[List[str]] = Query(None, description="Optional category filters (e.g., 'Dog', 'Lost')")
+    lat: float = Query(..., ge=-90, le=90, description="Latitude of search center"),
+    lon: float = Query(..., ge=-180, le=180, description="Longitude of search center"),
+    radius_km: float = Query(5.0, gt=0, description="Radius in kilometers"),
+    tags: Optional[List[str]] = Query(
+        None,
+        description="Optional category filters (e.g., 'Dog', 'Lost')",
+    ),
+    db: Session = Depends(get_db),
 ):
     """
     DFD Action: Processes "Spatial & Tag Queries".
@@ -37,11 +80,21 @@ def search_posts_by_radius(
     - Filter posts where `ST_DWithin(location, :search_point, :radius)` is true.
     - Join with the `post_tags` table if the user provides specific filtering tags.
     """
-    return {"message": "Radius search not implemented yet."}
+    return search_posts_by_radius_crud(
+        db,
+        lat=lat,
+        lon=lon,
+        radius_km=radius_km,
+        tags=tags,
+    )
 
 
-@router.get("/neighborhood/{community_id}/feed", summary="Get posts strictly within a neighborhood")
-def get_neighborhood_feed(community_id: UUID):
+@router.get(
+    "/neighborhood/{community_id}/feed",
+    response_model=list[PostSearchResponse],
+    summary="Get posts strictly within a neighborhood",
+)
+def get_neighborhood_feed(community_id: UUID, db: Session = Depends(get_db)):
     """
     DFD Action: Intersects D4 Community bounds with D4 Posts.
 
@@ -49,4 +102,17 @@ def get_neighborhood_feed(community_id: UUID):
     - Fetch the `Community` by ID to retrieve its `geofence_boundary` (Polygon).
     - Use PostGIS `ST_Contains` or `ST_Intersects` to return ONLY posts that fall inside that specific polygon.
     """
-    return {"message": f"Geofenced feed for community {community_id} not implemented."}
+    try:
+        posts = get_neighborhood_feed_crud(db, community_id=community_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    if posts is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Community {community_id} was not found.",
+        )
+    return posts
