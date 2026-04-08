@@ -1,4 +1,6 @@
+from contextlib import asynccontextmanager
 import os
+import logging
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
@@ -9,10 +11,19 @@ from .api.v1 import auth, geo, community
 from .database import engine, get_db
 from . import models
 
-models.Base.metadata.create_all(bind=engine)
 load_dotenv()
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Pawnder API - Dev")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    try:
+        models.Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        logger.warning("Database initialization skipped: %s", exc)
+    yield
+
+
+app = FastAPI(title="Pawnder API - Dev", lifespan=lifespan)
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(community.router, prefix="/api/v1")
