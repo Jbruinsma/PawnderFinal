@@ -35,12 +35,15 @@ Widget buildCommunityPostsFeed({
     );
   }
 
-  final recentPosts =
-      visiblePosts.where((post) => post['section'] == 'recent').toList();
-  final foundPosts =
-      visiblePosts.where((post) => post['section'] == 'found').toList();
+  final recentPosts = visiblePosts
+      .where((post) => post['section'] == 'recent')
+      .toList();
+  final foundPosts = visiblePosts
+      .where((post) => post['section'] == 'found')
+      .toList();
 
   return ListView(
+    padding: const EdgeInsets.only(bottom: 92),
     children: [
       if (recentPosts.isNotEmpty)
         _PostSection(
@@ -51,30 +54,7 @@ Widget buildCommunityPostsFeed({
       if (recentPosts.isNotEmpty && foundPosts.isNotEmpty)
         const SizedBox(height: 20),
       if (foundPosts.isNotEmpty)
-        _PostSection(
-          title: 'Found',
-          posts: foundPosts,
-          onPostTap: onPostTap,
-        ),
-      const SizedBox(height: 8),
-      Align(
-        alignment: Alignment.centerRight,
-        child: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-          onPressed: () {},
-          child: const Text(
-            'Add listing here +',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-        ),
-      ),
+        _PostSection(title: 'Found', posts: foundPosts, onPostTap: onPostTap),
     ],
   );
 }
@@ -119,7 +99,8 @@ class _PostSection extends StatelessWidget {
                   Expanded(
                     child: _PostCard(
                       post: posts[i],
-                      heroTag: 'post-${posts[i]['id'] ?? posts[i]['title'] ?? i}',
+                      heroTag:
+                          'post-${posts[i]['id'] ?? posts[i]['title'] ?? i}',
                       onTap: () => onPostTap(posts[i]),
                       useWideLayout: true,
                     ),

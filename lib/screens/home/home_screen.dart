@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawnder_app/screens/home/listing_screen.dart';
 import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
 import 'package:pawnder_app/screens/home/pet_details_screen.dart';
 import 'package:pawnder_app/widgets/build_bottom_nav.dart';
@@ -25,111 +26,27 @@ class _HomeScreenState extends State<HomeScreen> {
   String _communitySearchQuery = '';
 
   final List<Map<String, String>> _pets = const [
-    {
-      'name': 'Pearline',
-      'meta': 'Siamese, 4 months old',
-      'category': '🐱',
-    },
-    {
-      'name': 'Scooba',
-      'meta': 'Dalmatian, 2 years old',
-      'category': '🐶',
-    },
-    {
-      'name': 'Juniper',
-      'meta': 'Calico, 1 year old',
-      'category': '🐱',
-    },
-    {
-      'name': 'Pico',
-      'meta': 'Canary, 8 months old',
-      'category': '🐤',
-    },
-    {
-      'name': 'Nibbles',
-      'meta': 'Hamster, 1 year old',
-      'category': '🐹',
-    },
-    {
-      'name': 'Bubbles',
-      'meta': 'Goldfish, 6 months old',
-      'category': '🐟',
-    },
-    {
-      'name': 'Milo',
-      'meta': 'Golden Retriever, 1 year old',
-      'category': '🐶',
-    },
-    {
-      'name': 'Daisy',
-      'meta': 'Beagle, 3 years old',
-      'category': '🐶',
-    },
-    {
-      'name': 'Bruno',
-      'meta': 'French Bulldog, 2 years old',
-      'category': '🐶',
-    },
-    {
-      'name': 'Luna',
-      'meta': 'Ragdoll, 10 months old',
-      'category': '🐱',
-    },
-    {
-      'name': 'Shadow',
-      'meta': 'Bombay, 2 years old',
-      'category': '🐱',
-    },
-    {
-      'name': 'Coco',
-      'meta': 'Persian, 5 years old',
-      'category': '🐱',
-    },
-    {
-      'name': 'Kiwi',
-      'meta': 'Parakeet, 1 year old',
-      'category': '🐤',
-    },
-    {
-      'name': 'Sunny',
-      'meta': 'Cockatiel, 2 years old',
-      'category': '🐤',
-    },
-    {
-      'name': 'Pepper',
-      'meta': 'Lovebird, 11 months old',
-      'category': '🐤',
-    },
-    {
-      'name': 'Mocha',
-      'meta': 'Guinea Pig, 9 months old',
-      'category': '🐹',
-    },
-    {
-      'name': 'Pip',
-      'meta': 'Dwarf Hamster, 7 months old',
-      'category': '🐹',
-    },
-    {
-      'name': 'Nori',
-      'meta': 'Chinchilla, 2 years old',
-      'category': '🐹',
-    },
-    {
-      'name': 'Coral',
-      'meta': 'Betta, 1 year old',
-      'category': '🐟',
-    },
-    {
-      'name': 'Neptune',
-      'meta': 'Angelfish, 3 years old',
-      'category': '🐟',
-    },
-    {
-      'name': 'Skipper',
-      'meta': 'Clownfish, 2 years old',
-      'category': '🐟',
-    },
+    {'name': 'Pearline', 'meta': 'Siamese, 4 months old', 'category': '🐱'},
+    {'name': 'Scooba', 'meta': 'Dalmatian, 2 years old', 'category': '🐶'},
+    {'name': 'Juniper', 'meta': 'Calico, 1 year old', 'category': '🐱'},
+    {'name': 'Pico', 'meta': 'Canary, 8 months old', 'category': '🐤'},
+    {'name': 'Nibbles', 'meta': 'Hamster, 1 year old', 'category': '🐹'},
+    {'name': 'Bubbles', 'meta': 'Goldfish, 6 months old', 'category': '🐟'},
+    {'name': 'Milo', 'meta': 'Golden Retriever, 1 year old', 'category': '🐶'},
+    {'name': 'Daisy', 'meta': 'Beagle, 3 years old', 'category': '🐶'},
+    {'name': 'Bruno', 'meta': 'French Bulldog, 2 years old', 'category': '🐶'},
+    {'name': 'Luna', 'meta': 'Ragdoll, 10 months old', 'category': '🐱'},
+    {'name': 'Shadow', 'meta': 'Bombay, 2 years old', 'category': '🐱'},
+    {'name': 'Coco', 'meta': 'Persian, 5 years old', 'category': '🐱'},
+    {'name': 'Kiwi', 'meta': 'Parakeet, 1 year old', 'category': '🐤'},
+    {'name': 'Sunny', 'meta': 'Cockatiel, 2 years old', 'category': '🐤'},
+    {'name': 'Pepper', 'meta': 'Lovebird, 11 months old', 'category': '🐤'},
+    {'name': 'Mocha', 'meta': 'Guinea Pig, 9 months old', 'category': '🐹'},
+    {'name': 'Pip', 'meta': 'Dwarf Hamster, 7 months old', 'category': '🐹'},
+    {'name': 'Nori', 'meta': 'Chinchilla, 2 years old', 'category': '🐹'},
+    {'name': 'Coral', 'meta': 'Betta, 1 year old', 'category': '🐟'},
+    {'name': 'Neptune', 'meta': 'Angelfish, 3 years old', 'category': '🐟'},
+    {'name': 'Skipper', 'meta': 'Clownfish, 2 years old', 'category': '🐟'},
   ];
 
   final List<Map<String, String>> _communityPosts = const [
@@ -257,9 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPetTap: (pet) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => PetDetailsScreen(pet: pet),
-                  ),
+                  MaterialPageRoute(builder: (_) => PetDetailsScreen(pet: pet)),
                 );
               },
             ),
@@ -314,17 +229,52 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 18),
           Expanded(
-            child: buildCommunityPostsFeed(
-              posts: _communityPosts,
-              searchQuery: _communitySearchQuery,
-              onPostTap: (post) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MissingPostDetailsScreen(post: post),
+            child: Stack(
+              children: [
+                buildCommunityPostsFeed(
+                  posts: _communityPosts,
+                  searchQuery: _communitySearchQuery,
+                  onPostTap: (post) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MissingPostDetailsScreen(post: post),
+                      ),
+                    );
+                  },
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 8,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF18212A),
+                      elevation: 4,
+                      shadowColor: const Color(0x22000000),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ListingScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Add listing here +',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
-                );
-              },
+                ),
+              ],
             ),
           ),
         ],
@@ -372,14 +322,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 }
-  
-
-  
-
-
-
-
-
-
