@@ -4,6 +4,7 @@ class AppColors {
   static const Color blush = Color(0xFFE7C6CB);
   static const Color seaBlue = Color(0xFF0E889C);
   static const Color powderBlue = Color(0xFFDCE2E9);
+  static const Color ink = Color(0xFF101010);
   static const Color lineGray = Color(0xFFB0B8C1);
   static const Color bodyText = Color(0xFF7E8792);
   static const Color inputSurface = Color(0xFFF1F5F8);
@@ -23,7 +24,7 @@ class AppTextStyles {
   );
 
   static const TextStyle cardTitle = TextStyle(
-    fontSize: 38,
+    fontSize: 40,
     fontWeight: FontWeight.w900,
     letterSpacing: -0.3,
     color: AppColors.seaBlue,
@@ -36,7 +37,7 @@ class AppTextStyles {
   );
 
   static const TextStyle button = TextStyle(
-    fontSize: 17,
+    fontSize: 30,
     fontWeight: FontWeight.w900,
     color: Colors.white,
   );

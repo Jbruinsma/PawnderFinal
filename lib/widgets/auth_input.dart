@@ -16,28 +16,19 @@ class AuthInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 58,
-      decoration: BoxDecoration(
-        color: AppColors.inputSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.inputBorder, width: 1.1),
+      height: 42,
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
           if (icon != null)
-            Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                color: AppColors.iconSurface,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 17,
-                color: AppColors.seaBlue,
-              ),
+            Icon(
+              icon,
+              size: 32,
+              color: const Color(0xFF8B9097),
             ),
           if (icon != null) const SizedBox(width: 10),
           Expanded(
@@ -49,9 +40,9 @@ class AuthInput extends StatelessWidget {
                 hintText: hintText,
                 hintStyle: AppTextStyles.field.copyWith(
                   color: const Color(0xFF8A95A1),
+                  fontWeight: FontWeight.w500,
                 ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.only(bottom: 1),
               ),
             ),
           ),

@@ -12,7 +12,7 @@ class AuthCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.powderBlue,
       ),
-      padding: const EdgeInsets.fromLTRB(30, 30, 30, 26),
+      padding: const EdgeInsets.fromLTRB(18, 30, 18, 24),
       child: child,
     );
   }

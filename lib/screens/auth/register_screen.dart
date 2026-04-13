@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/screens/auth/login_screen.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/auth_card.dart';
@@ -23,46 +24,57 @@ class RegisterScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('GET STARTED', style: AppTextStyles.cardTitle),
-                    const SizedBox(height: 42),
+                    Center(
+                      child: Text(
+                        'GET STARTED',
+                        style: GoogleFonts.lilitaOne(
+                          fontSize: 42,
+                          color: AppColors.seaBlue,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 38),
                     const AuthInput(
                       hintText: 'Full Name',
-                      icon: Icons.person_2_outlined,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     const AuthInput(
                       hintText: 'Email',
                       icon: Icons.mail_outline,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     const AuthInput(
                       hintText: 'Password',
                       icon: Icons.lock_outline,
                       obscureText: true,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     const AuthInput(
                       hintText: 'Confirm Password',
                       icon: Icons.lock_outline,
                       obscureText: true,
                     ),
-                    const SizedBox(height: 38),
+                    const SizedBox(height: 28),
                     SizedBox(
                       width: double.infinity,
-                      height: 64,
+                      height: 50,
                       child: FilledButton(
                         onPressed: () {},
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.seaBlue,
                           shape: const StadiumBorder(),
                         ),
-                        child: const Text(
+                        child: Text(
                           'CREATE ACCOUNT',
-                          style: AppTextStyles.button,
+                          style: GoogleFonts.lilitaOne(
+                            color: Colors.white,
+                            fontSize: 37,
+                            height: 0.95,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Center(
                       child: GestureDetector(
                         onTap: () => Navigator.pushReplacementNamed(
@@ -71,7 +83,11 @@ class RegisterScreen extends StatelessWidget {
                         ),
                         child: const Text(
                           'Already have an account? Click here!',
-                          style: AppTextStyles.helper,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.ink,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
