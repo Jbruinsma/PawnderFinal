@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pawnder_app/screens/home/chat_screen.dart';
+import 'package:pawnder_app/screens/home/community_screen.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
 import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
+import 'package:pawnder_app/screens/home/profile_screen.dart';
 import 'package:pawnder_app/screens/home/pet_details_screen.dart';
 import 'package:pawnder_app/widgets/build_bottom_nav.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
@@ -116,17 +119,27 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.powderBlue,
       body: SafeArea(
         child: switch (_selectedNavIndex) {
-          1 => _buildCommunityView(context),
-          2 => _buildPlaceholderView(
-            title: 'Messages',
-            subtitle: 'Direct messages are coming soon.',
-            icon: Icons.chat_bubble_rounded,
+          1 => CommunityScreen(
+            posts: _communityPosts,
+            onPostTap: (post) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MissingPostDetailsScreen(post: post),
+                ),
+              );
+            },
+            onAddListingTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ListingScreen(),
+                ),
+              );
+            },
           ),
-          3 => _buildPlaceholderView(
-            title: 'Profile',
-            subtitle: 'Your profile page is coming soon.',
-            icon: Icons.person_rounded,
-          ),
+          2 => const ChatScreen(),
+          3 => const ProfileScreen(),
           _ => _buildAdoptionView(context),
         },
       ),
@@ -209,142 +222,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCommunityView(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: Image.asset(
-                    'assets/images/animals.jpg',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Community Alerts',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF2A3440),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          buildSearch(
-            onChanged: (value) {
-              setState(() {
-                _communitySearchQuery = value;
-              });
-            },
-          ),
-          const SizedBox(height: 18),
-          Expanded(
-            child: Stack(
-              children: [
-                buildCommunityPostsFeed(
-                  posts: _communityPosts,
-                  searchQuery: _communitySearchQuery,
-                  onPostTap: (post) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MissingPostDetailsScreen(post: post),
-                      ),
-                    );
-                  },
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 8,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF18212A),
-                      elevation: 4,
-                      shadowColor: const Color(0x22000000),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ListingScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Add listing here +',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderView({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: Colors.white,
-              child: Icon(icon, size: 36, color: AppColors.seaBlue),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF2C3742),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.bodyText,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
