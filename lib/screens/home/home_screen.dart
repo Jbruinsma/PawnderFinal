@@ -7,7 +7,6 @@ import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
 import 'package:pawnder_app/screens/home/profile_screen.dart';
 import 'package:pawnder_app/screens/home/pet_details_screen.dart';
 import 'package:pawnder_app/widgets/build_bottom_nav.dart';
-import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_category_row.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
@@ -27,7 +26,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedNavIndex = 0;
   String _selectedCategory = 'all';
   String _searchQuery = '';
-  String _communitySearchQuery = '';
 
   final List<Map<String, String>> _pets = const [
     {
