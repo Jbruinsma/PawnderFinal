@@ -33,28 +33,32 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Center(
-                      child: const Text(
-                        'WELCOME BACK!',
-                        style: TextStyle(
-                          fontSize: 43,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.7,
-                          color: AppColors.seaBlue,
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'WELCOME BACK!',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 43,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.7,
+                            color: AppColors.seaBlue,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 58),
+                    const SizedBox(height: 42),
                     const AuthInput(
                       hintText: 'Email',
                       icon: Icons.mail_outline,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     const AuthInput(
                       hintText: 'Password',
                       icon: Icons.lock_outline,
                       obscureText: true,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Checkbox(
@@ -98,43 +102,60 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: FilledButton(
-                        onPressed: () => Navigator.pushReplacementNamed(
-                          context,
-                          HomeScreen.routeName,
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.seaBlue,
-                          shape: const StadiumBorder(),
-                        ),
-                        child: const Text(
-                          'LOG IN',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 34,
-                            height: 1,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
+                    const SizedBox(height: 28),
+                    Align(
+                      alignment: Alignment.center,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 290),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: FilledButton(
+                            onPressed: () => Navigator.pushReplacementNamed(
+                              context,
+                              HomeScreen.routeName,
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.seaBlue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'LOG IN',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 34,
+                                  height: 1,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     Center(
                       child: GestureDetector(
                         onTap: () => Navigator.pushReplacementNamed(
                           context,
                           RegisterScreen.routeName,
                         ),
-                        child: const Text(
-                          "Don't have an account? Create one",
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.ink,
-                            fontWeight: FontWeight.w600,
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "Don't have an account? Create one",
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -149,4 +170,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

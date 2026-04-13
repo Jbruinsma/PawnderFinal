@@ -9,11 +9,19 @@ class AuthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.powderBlue,
+      width: double.infinity,
+      height: double.infinity,
+      color: AppColors.powderBlue,
+      padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 390),
+            child: child,
+          ),
+        ),
       ),
-      padding: const EdgeInsets.fromLTRB(18, 30, 18, 24),
-      child: child,
     );
   }
 }

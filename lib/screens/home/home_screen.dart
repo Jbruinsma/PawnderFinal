@@ -15,15 +15,16 @@ import 'package:pawnder_app/widgets/build_search.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
+  final int initialNavIndex;
 
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.initialNavIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedNavIndex = 0;
+  late int _selectedNavIndex;
   String _selectedCategory = 'all';
   String _searchQuery = '';
 
@@ -110,6 +111,12 @@ class _HomeScreenState extends State<HomeScreen> {
           'I found this cockatiel perched on my window this afternoon. It is very tame and responds to whistles. Please contact me if you can identify unique markings.',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedNavIndex = widget.initialNavIndex;
+  }
 
   @override
   Widget build(BuildContext context) {

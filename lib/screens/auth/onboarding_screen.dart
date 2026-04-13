@@ -29,14 +29,18 @@ class OnboardingScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'WELCOME TO\nPAWNDER',
-                          style: TextStyle(
-                            fontSize: 52,
-                            height: 0.98,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.8,
-                            color: Colors.white,
+                        const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'WELCOME TO\nPAWNDER',
+                            style: TextStyle(
+                              fontSize: 52,
+                              height: 0.98,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.8,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -79,14 +83,20 @@ class OnboardingScreen extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [
-                                Text(
-                                  'LETS GET STARTED!',
-                                  style: TextStyle(
-                                    color: AppColors.seaBlue,
-                                    fontSize: 32,
-                                    height: 1,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.5,
+                                Expanded(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'LETS GET STARTED!',
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: AppColors.seaBlue,
+                                        fontSize: 32,
+                                        height: 1,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 SizedBox(width: 6),
@@ -106,12 +116,16 @@ class OnboardingScreen extends StatelessWidget {
                               context,
                               LoginScreen.routeName,
                             ),
-                            child: const Text(
-                              'Already have an account? Click here!',
-                              style: TextStyle(
-                                color: AppColors.ink,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Already have an account? Click here!',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: AppColors.ink,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),

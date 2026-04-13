@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pawnder_app/models/message_thread.dart';
+import 'package:pawnder_app/screens/home/message_thread_screen.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/image_fallback.dart';
 
@@ -176,7 +178,35 @@ class MissingPostDetailsScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MessageThreadScreen(
+                            thread: MessageThread(
+                              id: 'post-${post['id'] ?? firstName}',
+                              participantName: author,
+                              title: post['title'] ?? 'Pet post conversation',
+                              subtitle: 'Community contact thread',
+                              unreadCount: 0,
+                              lastUpdatedLabel: 'Just now',
+                              messages: [
+                                ThreadMessage(
+                                  text:
+                                      'Hi! I saw your post and wanted to reach out about ${post['title'] ?? 'your pet'}.',
+                                  isMine: true,
+                                  timestamp: 'Just now',
+                                ),
+                                ThreadMessage(
+                                  text:
+                                      'Thank you so much for messaging. Let me know what details you need.',
+                                  isMine: false,
+                                  timestamp: 'Just now',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       child: Text(
                         'Contact $firstName',
                         style: const TextStyle(

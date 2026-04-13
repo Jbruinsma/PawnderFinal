@@ -16,21 +16,29 @@ class AuthInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 42,
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.inputBorder, width: 1),
-        ),
+      height: 62,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.inputBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           if (icon != null)
             Icon(
               icon,
-              size: 32,
-              color: const Color(0xFF8B9097),
+              size: 20,
+              color: const Color(0xFF7E8A96),
             ),
-          if (icon != null) const SizedBox(width: 10),
+          if (icon != null) const SizedBox(width: 12),
           Expanded(
             child: TextField(
               obscureText: obscureText,
@@ -43,6 +51,7 @@ class AuthInput extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
                 border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
           ),

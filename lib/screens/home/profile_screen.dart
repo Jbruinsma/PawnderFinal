@@ -31,13 +31,18 @@ class ProfileScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'STEVEN XIMMER',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                        color: Colors.black,
+                    const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'STEVEN XIMMER',
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -93,13 +98,17 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'STEVEN XIMMER',
-            style: TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.6,
-              color: Colors.black,
+          const FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'STEVEN XIMMER',
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.6,
+                color: Colors.black,
+              ),
             ),
           ),
           const SizedBox(height: 20),

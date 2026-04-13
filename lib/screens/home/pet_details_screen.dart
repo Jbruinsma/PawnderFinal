@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pawnder_app/models/message_thread.dart';
+import 'package:pawnder_app/screens/home/message_thread_screen.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/image_fallback.dart';
 
@@ -188,7 +190,41 @@ class PetDetailsScreen extends StatelessWidget {
                           ),
                           _circleIcon(Icons.call_rounded),
                           const SizedBox(width: 8),
-                          _circleIcon(Icons.chat_bubble_rounded),
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MessageThreadScreen(
+                                  thread: MessageThread(
+                                    id: 'pet-${pet['ownerName'] ?? 'owner'}',
+                                    participantName:
+                                        pet['ownerName'] ?? 'Jade Green',
+                                    title:
+                                        '${pet['name'] ?? 'Pet'} adoption chat',
+                                    subtitle:
+                                        pet['ownerMeta'] ?? 'Pet owner for 3 years',
+                                    unreadCount: 0,
+                                    lastUpdatedLabel: 'Just now',
+                                    messages: [
+                                      ThreadMessage(
+                                        text:
+                                            'Hi! I would love to learn more about ${pet['name'] ?? 'your pet'}.',
+                                        isMine: true,
+                                        timestamp: 'Just now',
+                                      ),
+                                      ThreadMessage(
+                                        text:
+                                            'Absolutely. I can answer any questions you have.',
+                                        isMine: false,
+                                        timestamp: 'Just now',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            child: _circleIcon(Icons.chat_bubble_rounded),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 18),

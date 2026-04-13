@@ -99,18 +99,25 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'RECENTLY POSTED',
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                  color: Colors.black,
+              const FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'RECENTLY POSTED',
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.8,
+                    color: Colors.black,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 22,
                   color: Color(0xFF222222),
@@ -142,9 +149,13 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                       ),
                       shape: const StadiumBorder(),
                     ),
-                    child: const Text(
-                      'Add listing here +',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Add listing here +',
+                        maxLines: 1,
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ),
                 ),
