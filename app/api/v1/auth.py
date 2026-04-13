@@ -5,7 +5,10 @@ from app.core.security import verify_password, create_access_token, get_current_
 from app.models.user import User
 from app.crud.crud_user import create_user, get_user_by_email
 from app.database import get_db
-from app.schemas.user import UserCreate, UserResponse, UserLogin, Token
+from app.schemas.user import UserCreate, UserResponse, UserLogin, Token, UserLocationUpdate, UserLocationResponse
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Point
+
 router = APIRouter(
     prefix="/auth",
     tags=["1.0 Auth & Profile"]
@@ -71,13 +74,28 @@ def read_current_user(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.put("/me/location", summary="Update user's spatial context")
-def update_user_location():
-    """
-    DFD Action: Updates "User Context & Current Location".
-    Task:
-    - Accept GPS coordinates from Matthew's Flutter app.
-    - Convert to a PostGIS Point.
-    - Save to the `last_known_location` column in D1.
-    """
-    return {"message": "Endpoint not implemented yet."}
+@router.put(
+    "/me/location",
+    response_model=UserLocationResponse,
+    summary="Update user's spatial "
+    "context",
+)
+def update_user_location(
+    location_in:UserLocationUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    point = Point(location_in.longitude, location_in.latitude)
+    current_user.last_known_location = from_shape(point, srid=4326)
+
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "message": "Location updated successfully.",
+        "last_known_location": {
+            "latitude": location_in.latitude,
+            "longitude": location_in.longitude,
+        },
+    }
