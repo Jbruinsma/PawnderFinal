@@ -19,7 +19,7 @@ class MissingPostDetailsScreen extends StatelessWidget {
         .toList();
 
     return Scaffold(
-      backgroundColor: AppColors.blush,
+      backgroundColor: AppColors.powderBlue,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(

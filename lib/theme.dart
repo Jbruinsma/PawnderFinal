@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color blush = Color(0xFFE7C6CB);
   static const Color seaBlue = Color(0xFF0E889C);
   static const Color powderBlue = Color(0xFFDCE2E9);
   static const Color ink = Color(0xFF101010);
