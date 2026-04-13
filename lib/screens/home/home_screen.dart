@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
 import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
 import 'package:pawnder_app/screens/home/pet_details_screen.dart';
@@ -26,27 +27,36 @@ class _HomeScreenState extends State<HomeScreen> {
   String _communitySearchQuery = '';
 
   final List<Map<String, String>> _pets = const [
-    {'name': 'Pearline', 'meta': 'Siamese, 4 months old', 'category': '🐱'},
-    {'name': 'Scooba', 'meta': 'Dalmatian, 2 years old', 'category': '🐶'},
-    {'name': 'Juniper', 'meta': 'Calico, 1 year old', 'category': '🐱'},
-    {'name': 'Pico', 'meta': 'Canary, 8 months old', 'category': '🐤'},
-    {'name': 'Nibbles', 'meta': 'Hamster, 1 year old', 'category': '🐹'},
-    {'name': 'Bubbles', 'meta': 'Goldfish, 6 months old', 'category': '🐟'},
-    {'name': 'Milo', 'meta': 'Golden Retriever, 1 year old', 'category': '🐶'},
-    {'name': 'Daisy', 'meta': 'Beagle, 3 years old', 'category': '🐶'},
-    {'name': 'Bruno', 'meta': 'French Bulldog, 2 years old', 'category': '🐶'},
-    {'name': 'Luna', 'meta': 'Ragdoll, 10 months old', 'category': '🐱'},
-    {'name': 'Shadow', 'meta': 'Bombay, 2 years old', 'category': '🐱'},
-    {'name': 'Coco', 'meta': 'Persian, 5 years old', 'category': '🐱'},
-    {'name': 'Kiwi', 'meta': 'Parakeet, 1 year old', 'category': '🐤'},
-    {'name': 'Sunny', 'meta': 'Cockatiel, 2 years old', 'category': '🐤'},
-    {'name': 'Pepper', 'meta': 'Lovebird, 11 months old', 'category': '🐤'},
-    {'name': 'Mocha', 'meta': 'Guinea Pig, 9 months old', 'category': '🐹'},
-    {'name': 'Pip', 'meta': 'Dwarf Hamster, 7 months old', 'category': '🐹'},
-    {'name': 'Nori', 'meta': 'Chinchilla, 2 years old', 'category': '🐹'},
-    {'name': 'Coral', 'meta': 'Betta, 1 year old', 'category': '🐟'},
-    {'name': 'Neptune', 'meta': 'Angelfish, 3 years old', 'category': '🐟'},
-    {'name': 'Skipper', 'meta': 'Clownfish, 2 years old', 'category': '🐟'},
+    {
+      'name': 'Pearline',
+      'meta': 'Siamese, 4 months old',
+      'category': 'cat',
+      'image': 'assets/images/animals.jpg',
+    },
+    {
+      'name': 'Scooba',
+      'meta': 'Dalmatian, 2 yrs old',
+      'category': 'dog',
+      'image': 'assets/images/animals.jpg',
+    },
+    {
+      'name': 'Table',
+      'meta': 'Calico, 1 month old',
+      'category': 'cat',
+      'image': 'assets/images/animals.jpg',
+    },
+    {
+      'name': 'AppleJax',
+      'meta': 'American Bobtail, 2 yrs old',
+      'category': 'cat',
+      'image': 'assets/images/animals.jpg',
+    },
+    {
+      'name': 'Pico',
+      'meta': 'Cockatiel, 8 months old',
+      'category': 'bird',
+      'image': 'assets/images/animals.jpg',
+    },
   ];
 
   final List<Map<String, String>> _communityPosts = const [
@@ -132,6 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAdoptionView(BuildContext context) {
+    final isResultsMode = _searchQuery.trim().isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
       child: Column(
@@ -146,30 +158,43 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
           ),
-          const SizedBox(height: 18),
-          const Text(
-            'CATEGORIES',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              color: AppColors.seaBlue,
-              letterSpacing: -0.6,
+          const SizedBox(height: 16),
+          if (!isResultsMode)
+            Text(
+              'CATEGORIES',
+              style: GoogleFonts.lilitaOne(
+                fontSize: 40,
+                color: AppColors.seaBlue,
+                letterSpacing: 0.1,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          buildCategoryRow(
-            selectedCategory: _selectedCategory,
-            onCategoryTap: (category) {
-              setState(() {
-                _selectedCategory = category;
-              });
-            },
-          ),
-          const SizedBox(height: 18),
+          if (isResultsMode)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Showing results for "${_searchQuery.trim()}"',
+                style: const TextStyle(
+                  color: Color(0xFF222222),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          if (!isResultsMode) const SizedBox(height: 10),
+          if (!isResultsMode)
+            buildCategoryRow(
+              selectedCategory: _selectedCategory,
+              onCategoryTap: (category) {
+                setState(() {
+                  _selectedCategory = category;
+                });
+              },
+            ),
+          if (!isResultsMode) const SizedBox(height: 16),
           Expanded(
             child: buildPetList(
               pets: _pets,
-              selectedCategory: _selectedCategory,
+              selectedCategory: isResultsMode ? 'all' : _selectedCategory,
               searchQuery: _searchQuery,
               onPetTap: (pet) {
                 Navigator.push(

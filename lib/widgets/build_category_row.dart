@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/theme.dart';
+import 'package:pawnder_app/widgets/image_fallback.dart';
 
 Widget buildCategoryRow({
   required String selectedCategory,
   required ValueChanged<String> onCategoryTap,
 }) {
-  final avatars = ['🐶', '🐱', '🐤', '🐹', '🐟'];
+  final avatars = [
+    {'id': 'dog', 'image': 'assets/images/animals.jpg'},
+    {'id': 'cat', 'image': 'assets/images/animals.jpg'},
+    {'id': 'bird', 'image': 'assets/images/animals.jpg'},
+    {'id': 'small', 'image': 'assets/images/animals.jpg'},
+    {'id': 'all', 'image': 'assets/images/animals.jpg'},
+  ];
 
   return LayoutBuilder(
     builder: (context, constraints) {
@@ -15,27 +22,31 @@ Widget buildCategoryRow({
           constraints: BoxConstraints(minWidth: constraints.maxWidth),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: avatars.map((emoji) {
-              final isSelected = selectedCategory == emoji;
+            children: avatars.map((avatar) {
+              final id = avatar['id']!;
+              final isSelected = selectedCategory == id;
               return InkWell(
                 borderRadius: BorderRadius.circular(999),
-                onTap: () => onCategoryTap(emoji),
+                onTap: () => onCategoryTap(id),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 170),
-                  width: 68,
-                  height: 68,
+                  width: 56,
+                  height: 56,
+                  padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.seaBlue : Colors.white,
+                    color: Colors.white,
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.seaBlue, width: 2),
+                    border: Border.all(
+                      color: isSelected ? AppColors.seaBlue : const Color(0x330E889C),
+                      width: isSelected ? 2 : 1,
+                    ),
                   ),
-                  child: Center(
-                    child: Text(
-                      emoji,
-                      style: TextStyle(
-                        fontSize: 26,
-                        color: isSelected ? Colors.white : null,
-                      ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: Image.asset(
+                      avatar['image']!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const ImageFallback(),
                     ),
                   ),
                 ),
