@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/screens/auth/login_screen.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/auth_card.dart';
@@ -25,10 +24,12 @@ class RegisterScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Center(
-                      child: Text(
+                      child: const Text(
                         'GET STARTED',
-                        style: GoogleFonts.lilitaOne(
+                        style: TextStyle(
                           fontSize: 42,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.7,
                           color: AppColors.seaBlue,
                         ),
                       ),
@@ -64,12 +65,14 @@ class RegisterScreen extends StatelessWidget {
                           backgroundColor: AppColors.seaBlue,
                           shape: const StadiumBorder(),
                         ),
-                        child: Text(
+                        child: const Text(
                           'CREATE ACCOUNT',
-                          style: GoogleFonts.lilitaOne(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 37,
-                            height: 0.95,
+                            fontSize: 34,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
                           ),
                         ),
                       ),

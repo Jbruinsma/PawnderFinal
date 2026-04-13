@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/image_fallback.dart';
 
@@ -32,10 +31,12 @@ class ChatScreen extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Jade Green',
-                    style: GoogleFonts.lilitaOne(
+                    style: TextStyle(
                       fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.6,
                       color: AppColors.ink,
                     ),
                   ),

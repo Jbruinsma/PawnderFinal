@@ -38,23 +38,16 @@ Widget buildCommunityPostsFeed({
   final recentPosts = visiblePosts
       .where((post) => post['section'] == 'recent')
       .toList();
-  final foundPosts = visiblePosts
-      .where((post) => post['section'] == 'found')
-      .toList();
 
   return ListView(
     padding: const EdgeInsets.only(bottom: 92),
     children: [
       if (recentPosts.isNotEmpty)
         _PostSection(
-          title: 'Recently Posted',
+          title: 'Recent Posts',
           posts: recentPosts,
           onPostTap: onPostTap,
         ),
-      if (recentPosts.isNotEmpty && foundPosts.isNotEmpty)
-        const SizedBox(height: 20),
-      if (foundPosts.isNotEmpty)
-        _PostSection(title: 'Found', posts: foundPosts, onPostTap: onPostTap),
     ],
   );
 }
@@ -80,13 +73,11 @@ class _PostSection extends StatelessWidget {
         Text(
           title,
           style: TextStyle(
-            fontSize: title == 'Recently Posted' ? 38 : 34,
+            fontSize: 38,
             height: 1,
             fontWeight: FontWeight.w900,
             letterSpacing: -0.7,
-            color: title == 'Recently Posted'
-                ? const Color(0xFF131313)
-                : const Color(0xFF303A45),
+            color: const Color(0xFF131313),
           ),
         ),
         const SizedBox(height: 8),
@@ -99,8 +90,6 @@ class _PostSection extends StatelessWidget {
                   Expanded(
                     child: _PostCard(
                       post: posts[i],
-                      heroTag:
-                          'post-${posts[i]['id'] ?? posts[i]['title'] ?? i}',
                       onTap: () => onPostTap(posts[i]),
                       useWideLayout: true,
                     ),
@@ -121,7 +110,6 @@ class _PostSection extends StatelessWidget {
                 final post = posts[index];
                 return _PostCard(
                   post: post,
-                  heroTag: 'post-${post['id'] ?? post['title'] ?? index}',
                   onTap: () => onPostTap(post),
                   useWideLayout: false,
                 );
@@ -135,13 +123,11 @@ class _PostSection extends StatelessWidget {
 
 class _PostCard extends StatelessWidget {
   final Map<String, String> post;
-  final String heroTag;
   final VoidCallback onTap;
   final bool useWideLayout;
 
   const _PostCard({
     required this.post,
-    required this.heroTag,
     required this.onTap,
     required this.useWideLayout,
   });
@@ -166,18 +152,15 @@ class _PostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Hero(
-              tag: heroTag,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  post['image'] ?? 'assets/images/animals.jpg',
-                  height: 92,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox(height: 92, child: ImageFallback()),
-                ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                post['image'] ?? 'assets/images/animals.jpg',
+                height: 92,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const SizedBox(height: 92, child: ImageFallback()),
               ),
             ),
             const SizedBox(height: 8),

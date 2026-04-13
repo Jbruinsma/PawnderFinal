@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/image_fallback.dart';
 
@@ -32,10 +31,12 @@ class ProfileScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'STEVEN XIMMER',
-                      style: GoogleFonts.lilitaOne(
+                      style: TextStyle(
                         fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
                         color: Colors.black,
                       ),
                     ),
@@ -92,10 +93,12 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
+          const Text(
             'STEVEN XIMMER',
-            style: GoogleFonts.lilitaOne(
+            style: TextStyle(
               fontSize: 34,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
               color: Colors.black,
             ),
           ),
@@ -125,8 +128,10 @@ class _MenuTile extends StatelessWidget {
       child: Text(
         label,
         textAlign: TextAlign.center,
-        style: GoogleFonts.lilitaOne(
+        style: const TextStyle(
           fontSize: 22,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.4,
           color: AppColors.seaBlue,
         ),
       ),

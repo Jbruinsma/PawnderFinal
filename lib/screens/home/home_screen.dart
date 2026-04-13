@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:pawnder_app/screens/home/community_posts_screen.dart';
 import 'package:pawnder_app/screens/home/chat_screen.dart';
 import 'package:pawnder_app/screens/home/community_screen.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
@@ -135,6 +135,53 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
             },
+            onCommunityTap: (community) {
+              final filteredPosts = _communityPosts.where((post) {
+                final tags = (post['tags'] ?? '').toLowerCase();
+                final location = (post['location'] ?? '').toLowerCase();
+                final title = (post['title'] ?? '').toLowerCase();
+                final description = (post['description'] ?? '').toLowerCase();
+
+                return switch (community.title) {
+                  'Lost Critters' =>
+                    (post['section'] ?? '') == 'recent' ||
+                    tags.contains('lostpet') ||
+                    title.contains('find') ||
+                    description.contains('missing'),
+                  'Bird Lovers' =>
+                    tags.contains('bird') || title.contains('parrot'),
+                  'Brooklyn' =>
+                    tags.contains('brooklyn') || location.contains('brooklyn'),
+                  _ => false,
+                };
+              }).toList();
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CommunityPostsScreen(
+                    title: community.title,
+                    posts: filteredPosts,
+                    onPostTap: (post) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MissingPostDetailsScreen(post: post),
+                        ),
+                      );
+                    },
+                    onAddListingTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ListingScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
           ),
           2 => const ChatScreen(),
           3 => const ProfileScreen(),
@@ -171,12 +218,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           if (!isResultsMode)
-            Text(
+            const Text(
               'CATEGORIES',
-              style: GoogleFonts.lilitaOne(
+              style: TextStyle(
                 fontSize: 40,
+                fontWeight: FontWeight.w900,
                 color: AppColors.seaBlue,
-                letterSpacing: 0.1,
+                letterSpacing: -0.5,
               ),
             ),
           if (isResultsMode)

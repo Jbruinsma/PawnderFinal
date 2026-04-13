@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/image_fallback.dart';
 
@@ -109,9 +108,11 @@ class PetDetailsScreen extends StatelessWidget {
                           Expanded(
                             child: Text(
                               pet['name'] ?? 'Unnamed',
-                              style: GoogleFonts.lilitaOne(
+                              style: const TextStyle(
                                 fontSize: 42,
                                 height: 0.95,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.8,
                                 color: Colors.black,
                               ),
                             ),

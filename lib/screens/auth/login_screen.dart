@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/screens/auth/forgot_password_screen.dart';
 import 'package:pawnder_app/screens/auth/register_screen.dart';
 import 'package:pawnder_app/screens/home/home_screen.dart';
@@ -34,10 +33,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Center(
-                      child: Text(
+                      child: const Text(
                         'WELCOME BACK!',
-                        style: GoogleFonts.lilitaOne(
+                        style: TextStyle(
                           fontSize: 43,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.7,
                           color: AppColors.seaBlue,
                         ),
                       ),
@@ -109,12 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: AppColors.seaBlue,
                           shape: const StadiumBorder(),
                         ),
-                        child: Text(
+                        child: const Text(
                           'LOG IN',
-                          style: GoogleFonts.lilitaOne(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 37,
-                            height: 0.95,
+                            fontSize: 34,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
                           ),
                         ),
                       ),
@@ -146,5 +149,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
 

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pawnder_app/theme.dart';
 
@@ -107,11 +106,12 @@ class _ListingScreenState extends State<ListingScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
+              const Text(
                 'CREATE LISTING',
-                style: GoogleFonts.lilitaOne(
+                style: TextStyle(
                   fontSize: 42,
                   height: 0.95,
+                  fontWeight: FontWeight.w900,
                   letterSpacing: -1.2,
                   color: AppColors.seaBlue,
                 ),

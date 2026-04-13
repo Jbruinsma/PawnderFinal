@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/image_fallback.dart';
 
@@ -10,7 +9,6 @@ class MissingPostDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heroTag = 'post-${post['id'] ?? post['title'] ?? 'unknown'}';
     final author = post['author'] ?? 'Pet Owner';
     final firstName = author.trim().isEmpty ? 'Owner' : author.split(' ').first;
     final tags = (post['tags'] ?? '')
@@ -53,28 +51,25 @@ class MissingPostDetailsScreen extends StatelessWidget {
             ],
             flexibleSpace: FlexibleSpaceBar(
               collapseMode: CollapseMode.pin,
-              background: Hero(
-                tag: heroTag,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      post['image'] ?? 'assets/images/animals.jpg',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ImageFallback(),
-                    ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x12000000), Color(0x12000000)],
-                        ),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    post['image'] ?? 'assets/images/animals.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const ImageFallback(),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0x12000000), Color(0x12000000)],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -99,9 +94,11 @@ class MissingPostDetailsScreen extends StatelessWidget {
                           children: [
                             Text(
                               post['title'] ?? 'Help me find my pet',
-                              style: GoogleFonts.lilitaOne(
+                              style: const TextStyle(
                                 fontSize: 34,
                                 height: 0.96,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.6,
                                 color: Colors.white,
                               ),
                             ),
