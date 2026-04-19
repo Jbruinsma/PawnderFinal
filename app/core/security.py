@@ -16,7 +16,10 @@ from app.models.user import User
 
 bearer_scheme = HTTPBearer()
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def verify_password(
+        plain_password: str,
+        hashed_password: str
+) -> bool:
     """
     Compares a plain text password against a stored hash.
     Used in: /api/v1/auth/login
@@ -60,7 +63,10 @@ def get_password_hash(password: str) -> str:
     return f"pbkdf2_sha256${salt}${encoded_hash}"
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+        data: dict,
+        expires_delta: Optional[timedelta] = None
+) -> str:
     """
     Generates an access token for the user's session.
     """
@@ -92,7 +98,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    session: Session = Depends(get_db),
 ) -> User:
     token = credentials.credentials
     credentials_exception = HTTPException(
@@ -127,7 +133,7 @@ def get_current_user(
     except Exception:
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = session.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
 
