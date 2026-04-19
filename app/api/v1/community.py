@@ -1,24 +1,24 @@
-from typing import Annotated, Optional, Any, Dict
+from typing import Annotated, Optional, Any, Dict, Sequence, List
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Depends, HTTPException
-from sqlalchemy import func, select, and_, Row
+from geoalchemy2.shape import to_shape
+from sqlalchemy import func, select, and_, Row, desc
 from sqlalchemy.orm import Session
 from starlette import status
 
 from app.database import get_db
-from app.models import Community, User, user_communities
+from app.models import Community, User, user_communities, Post
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
+from app.schemas.post import CommunityPost, CommunityPostsResponse
 
 router = APIRouter(
     prefix="/community",
     tags=["5.0 Community Hub & Tagging"]
 )
 
-
-# --- NEIGHBORHOOD / COMMUNITY ENDPOINTS ---
 
 @router.get(
     path= "/neighborhoods",
@@ -39,7 +39,7 @@ def get_neighborhoods(
     - Return a list of neighborhoods (id, name, description).
     """
 
-    user_point = func.ST_SetSRID(
+    user_point: str = func.ST_SetSRID(
         func.ST_MakePoint(coords.longitude, coords.latitude),
         4326
     )
@@ -127,7 +127,69 @@ def join_neighborhood(
         message= f"Successfully joined {community.name}"
     )
 
-# --- POST & TAGGING ENDPOINTS ---
+
+@router.get(
+    path= "/posts",
+    summary= "List community posts"
+)
+async def get_posts(
+        community_id: UUID,
+        limit: int = Query(default=10, ge=1),
+        offset: int = Query(default=1, ge=1),
+        session: Session = Depends(get_db)
+):
+    if limit < offset:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="max_range cannot be less than min_range"
+        )
+
+    community_exists_stmt = select(Community.id).where(Community.id == community_id)
+    if not session.execute(community_exists_stmt).scalar():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community not found"
+        )
+
+    limit: int = limit - offset + 1
+    offset: int = offset - 1
+
+    stmt = (
+        select(Post)
+        .join(Post.author)
+        .where(Post.community_id == community_id)
+        .order_by(desc(Post.created_at))
+        .offset(offset)
+        .limit(limit)
+    )
+
+    posts = session.execute(stmt).scalars().all()
+
+    formatted_posts = []
+    for post in posts:
+        formatted_posts.append(
+            CommunityPost(
+                post_id=str(post.id),
+                author_id=str(post.author_id),
+                author_username=post.author.full_name,
+                community_id=str(post.community_id),
+                post_type=post.post_type,
+                title=post.title,
+                description=post.description,
+                image_url=post.image_url,
+                tags=[tag.name for tag in post.tags],
+                status=post.status,
+                created_at=post.created_at,
+                location={
+                    "longitude": to_shape(post.location).x,
+                    "latitude": to_shape(post.location).y
+                }
+            )
+        )
+
+    return CommunityPostsResponse(
+        posts=formatted_posts
+    )
 
 @router.post("/posts", summary="Create a new community post")
 def create_post():
