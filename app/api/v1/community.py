@@ -13,6 +13,7 @@ from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
 from app.schemas.post import CommunityPost, CommunityPostsResponse
+from app.utils.formatting_utils import format_post
 
 router = APIRouter(
     prefix="/community",
@@ -165,30 +166,12 @@ async def get_posts(
 
     posts = session.execute(stmt).scalars().all()
 
-    formatted_posts = []
-    for post in posts:
-        formatted_posts.append(
-            CommunityPost(
-                post_id=str(post.id),
-                author_id=str(post.author_id),
-                author_username=post.author.full_name,
-                community_id=str(post.community_id),
-                post_type=post.post_type,
-                title=post.title,
-                description=post.description,
-                image_url=post.image_url,
-                tags=[tag.name for tag in post.tags],
-                status=post.status,
-                created_at=post.created_at,
-                location={
-                    "longitude": to_shape(post.location).x,
-                    "latitude": to_shape(post.location).y
-                }
-            )
-        )
+    formatted_posts = [
+        format_post(post) for post in posts
+    ]
 
     return CommunityPostsResponse(
-        posts=formatted_posts
+        posts= formatted_posts
     )
 
 @router.post("/posts", summary="Create a new community post")
@@ -206,15 +189,33 @@ def create_post():
     return {"message": "Endpoint not implemented yet."}
 
 
-@router.get("/posts/{post_id}", summary="Get a specific post")
-def get_post(post_id: UUID):
+@router.get(
+    path="/posts/{post_id}",
+    summary="Get a specific post",
+    response_model= Optional[CommunityPost]
+)
+def get_post(
+        post_id: UUID,
+        session: Session = Depends(get_db)
+) -> Optional[CommunityPost]:
     """
     DFD Action: Provides "Raw Post Data".
     Task:
     - Fetch the post from the database by ID.
     - Include the author's basic info and the associated tags.
     """
-    return {"message": f"Logic to fetch post {post_id} not implemented."}
+
+    stmt = (
+        select(Post)
+        .join(Post.author)
+        .where(Post.id == post_id)
+        .order_by(desc(Post.created_at))
+    )
+
+    post = session.execute(stmt).scalars().first()
+    if not post: return None
+
+    return format_post(post)
 
 
 @router.post("/posts/{post_id}/bookmark", summary="Bookmark a post")
