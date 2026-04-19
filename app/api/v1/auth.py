@@ -20,7 +20,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Create a new user",
 )
-def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
+def register_user(user_in: UserCreate, session: Session = Depends(get_db)):
     """
     DFD Action: Writes to D1: User Accounts.
     Task:
@@ -29,25 +29,31 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
     - Save to PostgreSQL.
     - Return schemas.UserResponse.
     """
-    existing_user = get_user_by_email(db, user_in.email)
+    existing_user = get_user_by_email(session, user_in.email)
     if existing_user is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A user with this email already exists.",
         )
 
-    return create_user(db, user_in)
+    return create_user(
+        session= session,
+        user_in= user_in
+    )
 
 
 @router.post("/login", response_model=Token, summary="Authenticate and receive token")
-def login_for_access_token(user_in: UserLogin, db: Session = Depends(get_db)):
+def login_for_access_token(user_in: UserLogin, session: Session = Depends(get_db)):
     """
     DFD Action: Processes "Credentials & Auth Request".
     Task:
     - Verify email and password against D1.
     - Generate and return a JWT (JSON Web Token) for the "Session".
     """
-    user = get_user_by_email(db, user_in.email)
+    user = get_user_by_email(
+        session= session,
+        email= user_in.email
+    )
 
     if user is None or not verify_password(user_in.password, user.password_hash):
         raise HTTPException(
@@ -77,20 +83,19 @@ def read_current_user(current_user: User = Depends(get_current_user)):
 @router.put(
     "/me/location",
     response_model=UserLocationResponse,
-    summary="Update user's spatial "
-    "context",
+    summary="Update user's spatial context"
 )
 def update_user_location(
     location_in:UserLocationUpdate,
-    db: Session = Depends(get_db),
+    session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     point = Point(location_in.longitude, location_in.latitude)
     current_user.last_known_location = from_shape(point, srid=4326)
 
-    db.add(current_user)
-    db.commit()
-    db.refresh(current_user)
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
 
     return {
         "message": "Location updated successfully.",

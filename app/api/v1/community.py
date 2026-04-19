@@ -1,6 +1,14 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Depends
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import Community
+from app.schemas.community import NeighborhoodResponseModel, Neighborhood
+from app.schemas.core import CoordinateSchema
 
 router = APIRouter(
     prefix="/community",
@@ -10,15 +18,47 @@ router = APIRouter(
 
 # --- NEIGHBORHOOD / COMMUNITY ENDPOINTS ---
 
-@router.get("/neighborhoods", summary="List available neighborhoods")
-def get_neighborhoods():
+@router.get(
+    path= "/neighborhoods",
+    summary="List available neighborhoods",
+    response_model= NeighborhoodResponseModel
+)
+def get_neighborhoods(
+        coords: Annotated[CoordinateSchema, Query()],
+        session: Session = Depends(get_db)
+):
     """
     DFD Action: Reads from D4: Community & Neighborhood Records.
+
     Task:
-    - Query the `Community` table.
+    - Receive validated latitude/longitude from CoordinateSchema.
+    - Construct a PostGIS point using ST_SetSRID and ST_MakePoint.
+    - Query the `Community` table and sort by proximity to the user's location.
     - Return a list of neighborhoods (id, name, description).
     """
-    return {"message": "Endpoint not implemented yet."}
+
+    user_point = func.ST_SetSRID(
+        func.ST_MakePoint(coords.longitude, coords.latitude),
+        4326
+    )
+
+    communities = (
+        session.query(Community)
+        .order_by(func.ST_Distance(Community.geofence_boundary, user_point))
+        .all()
+    )
+
+    serialized_neighborhoods = [
+        Neighborhood(
+            id= str(neighborhood.id),
+            name= str(neighborhood.name),
+            description= str(neighborhood.description)
+        ) for neighborhood in communities
+    ]
+
+    return NeighborhoodResponseModel(
+        neighborhoods= serialized_neighborhoods
+    )
 
 
 @router.post("/neighborhoods/{community_id}/join", summary="Join a neighborhood")

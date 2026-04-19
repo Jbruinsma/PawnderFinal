@@ -32,7 +32,7 @@ def get_user_feed(
         None,
         description="Optional category filters (e.g., 'Dog', 'Lost')",
     ),
-    db: Session = Depends(get_db),
+    session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -50,7 +50,7 @@ def get_user_feed(
         )
 
     return get_geo_feed(
-        db,
+        session,
         user=current_user,
         radius_km=radius_km,
         tags=tags,
@@ -70,7 +70,7 @@ def search_posts_by_radius(
         None,
         description="Optional category filters (e.g., 'Dog', 'Lost')",
     ),
-    db: Session = Depends(get_db),
+    session: Session = Depends(get_db),
 ):
     """
     DFD Action: Processes "Spatial & Tag Queries".
@@ -81,7 +81,7 @@ def search_posts_by_radius(
     - Join with the `post_tags` table if the user provides specific filtering tags.
     """
     return search_posts_by_radius_crud(
-        db,
+        session,
         lat=lat,
         lon=lon,
         radius_km=radius_km,
@@ -94,7 +94,7 @@ def search_posts_by_radius(
     response_model=list[PostSearchResponse],
     summary="Get posts strictly within a neighborhood",
 )
-def get_neighborhood_feed(community_id: UUID, db: Session = Depends(get_db)):
+def get_neighborhood_feed(community_id: UUID, session: Session = Depends(get_db)):
     """
     DFD Action: Intersects D4 Community bounds with D4 Posts.
 
@@ -103,7 +103,10 @@ def get_neighborhood_feed(community_id: UUID, db: Session = Depends(get_db)):
     - Use PostGIS `ST_Contains` or `ST_Intersects` to return ONLY posts that fall inside that specific polygon.
     """
     try:
-        posts = get_neighborhood_feed_crud(db, community_id=community_id)
+        posts = get_neighborhood_feed_crud(
+            session= session,
+            community_id=community_id
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

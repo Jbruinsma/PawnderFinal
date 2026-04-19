@@ -16,9 +16,9 @@ def _apply_tag_filter(query: Query, tags: Sequence[str] | None) -> Query:
     return query.filter(Post.tags.any(Tag.name.in_(tags)))
 
 
-def _serialize_post(db: Session, post: Post) -> PostSearchResponse:
-    longitude = db.query(func.ST_X(post.location)).scalar()
-    latitude = db.query(func.ST_Y(post.location)).scalar()
+def _serialize_post(session: Session, post: Post) -> PostSearchResponse:
+    longitude = session.query(func.ST_X(post.location)).scalar()
+    latitude = session.query(func.ST_Y(post.location)).scalar()
 
     return PostSearchResponse(
         id=post.id,
@@ -38,7 +38,7 @@ def _serialize_post(db: Session, post: Post) -> PostSearchResponse:
 
 
 def search_posts_by_radius(
-    db: Session,
+    session: Session,
     *,
     lat: float,
     lon: float,
@@ -52,7 +52,7 @@ def search_posts_by_radius(
         func.Geography(search_point),
     )
 
-    query = db.query(Post).filter(
+    query = session.query(Post).filter(
         func.ST_DWithin(
             func.Geography(Post.location),
             func.Geography(search_point),
@@ -62,11 +62,11 @@ def search_posts_by_radius(
     query = _apply_tag_filter(query, tags)
 
     posts = query.order_by(distance_expr.asc(), Post.created_at.desc()).all()
-    return [_serialize_post(db, post) for post in posts]
+    return [_serialize_post(session, post) for post in posts]
 
 
 def get_geo_feed(
-    db: Session,
+    session: Session,
     *,
     user: User,
     radius_km: float,
@@ -85,7 +85,7 @@ def get_geo_feed(
         func.Geography(user_search_point),
     )
 
-    query = db.query(Post).filter(
+    query = session.query(Post).filter(
         Post.status == "Active",
         Post.author_id != user.id,
         func.ST_DWithin(
@@ -97,15 +97,15 @@ def get_geo_feed(
     query = _apply_tag_filter(query, tags)
 
     posts = query.order_by(Post.created_at.desc(), distance_expr.asc()).all()
-    return [_serialize_post(db, post) for post in posts]
+    return [_serialize_post(session, post) for post in posts]
 
 
 def get_neighborhood_feed(
-    db: Session,
+    session: Session,
     *,
     community_id,
 ) -> list[PostSearchResponse] | None:
-    community = db.query(Community).filter(Community.id == community_id).first()
+    community = session.query(Community).filter(Community.id == community_id).first()
     if community is None:
         return None
 
@@ -113,7 +113,7 @@ def get_neighborhood_feed(
         raise ValueError("Community geofence boundary is not configured.")
 
     posts = (
-        db.query(Post)
+        session.query(Post)
         .filter(
             Post.status == "Active",
             func.ST_Intersects(Post.location, community.geofence_boundary),
@@ -121,4 +121,4 @@ def get_neighborhood_feed(
         .order_by(Post.created_at.desc())
         .all()
     )
-    return [_serialize_post(db, post) for post in posts]
+    return [_serialize_post(session, post) for post in posts]
