@@ -1,12 +1,14 @@
-from typing import Annotated
+from typing import Annotated, Optional, Any, Dict
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Depends
-from sqlalchemy import func
+from fastapi import APIRouter, Query, Depends, HTTPException
+from sqlalchemy import func, select, and_, Row
 from sqlalchemy.orm import Session
+from starlette import status
 
 from app.database import get_db
-from app.models import Community
+from app.models import Community, User, user_communities
+from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
 
@@ -62,15 +64,68 @@ def get_neighborhoods(
 
 
 @router.post("/neighborhoods/{community_id}/join", summary="Join a neighborhood")
-def join_neighborhood(community_id: UUID):
-    """
-    DFD Action: Processes "Topic Tags & Community Joins".
-    Task:
-    - Identify the current user (via JWT token).
-    - Insert a record into the `user_communities` association table.
-    """
-    return {"message": f"Logic to join community {community_id} not implemented."}
+def join_neighborhood(
+        community_id: UUID,
+        current_user_id: UUID,
+        session: Session = Depends(get_db)
+) -> Message:
+    stmt = (
+        select(
+            Community,
+            User,
+            user_communities.c.user_id.label("is_member")
+        )
+        .select_from(Community)
+        .outerjoin(User, User.id == current_user_id)
+        .outerjoin(
+            user_communities,
+            and_(
+                user_communities.c.community_id == Community.id,
+                user_communities.c.user_id == User.id
+            )
+        )
+        .where(Community.id == community_id)
+    )
 
+    result: Optional[Row[Any]] = session.execute(stmt).first()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community not found"
+        )
+
+    community: Community
+    user: Optional[User]
+    is_member: Optional[UUID]
+    community, user, is_member = result
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    if is_member is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are already a member of this community"
+        )
+
+    user.joined_communities.append(community)
+
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error"
+        )
+
+    return Message(
+        message= f"Successfully joined {community.name}"
+    )
 
 # --- POST & TAGGING ENDPOINTS ---
 
