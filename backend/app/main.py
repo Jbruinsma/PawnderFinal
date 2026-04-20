@@ -11,6 +11,8 @@ from .api.v1 import auth, geo, community
 from .database import engine, get_db
 from . import models
 
+from fastapi.middleware.cors import CORSMiddleware
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,22 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Pawnder API - Dev", lifespan=lifespan)
+
+origins = [
+    # "http://localhost:...", Example
+    "",
+    "",
+    "",
+    "",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(community.router, prefix="/api/v1")
