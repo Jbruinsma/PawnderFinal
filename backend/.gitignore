@@ -1,0 +1,44 @@
+# --- Python & FastAPI ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.python-version
+venv/
+env/
+.env
+.env.*
+!.env.example
+build/
+dist/
+
+# --- Databases (PostgreSQL/PostGIS) ---
+*.sql
+*.dump
+postgres_data/
+
+# --- IDEs & Editors (PyCharm Professional/VS Code) ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+.docker/
+docker-compose.override.yml
+
+# --- Flutter / Dart (For Matthew & the Frontend Team) ---
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+/build/
+ios/.generated/
+android/.gradle/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
