@@ -1,3 +1,9 @@
+from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user
+from app.schemas.post import (
+    CommunityPost, CommunityPostsResponse, PostCreationRequest,
+    ExistingTagsResponseModel, ExistingTag, BookmarkRequest
+)
+
 import uuid
 from typing import Annotated, Optional, Any, Dict, Sequence, List
 from uuid import UUID
@@ -176,58 +182,88 @@ async def get_posts(
         posts= formatted_posts
     )
 
-
 @router.post("/posts", summary="Create a new community post")
 def create_post(
-    post_creation_request: PostCreationRequest,
+    payload: PostCreationRequest,
     session: Session = Depends(get_db)
 ):
-    results = session.execute(
-        select(User, Community)
-        .join(Community, Community.id == post_creation_request.community_id)
-        .where(User.id == post_creation_request.author_id)
-    ).first()
 
-    if not results:
-        raise HTTPException(
-            status_code=404,
-            detail="Author or Community not found"
-        )
+    author_exists = session.execute(
+        select(User.id).where(User.id == payload.author_id)
+    ).scalar()
+    if not author_exists:
+        raise HTTPException(status_code=404, detail="Author not found")
 
-    author, community = results
+    community_exists = session.execute(
+        select(Community.id).where(Community.id == payload.community_id)
+    ).scalar()
+    if not community_exists:
+        raise HTTPException(status_code=404, detail="Community not found")
 
-    existing_tags = session.execute(
-        select(Tag).where(Tag.name.in_(post_creation_request.tags))
-    ).scalars().all()
+    new_post = db_create_post(session, payload)
 
-    new_post = Post(
-        author_id=post_creation_request.author_id,
-        community_id=post_creation_request.community_id,
-        post_type=post_creation_request.post_type,
-        title=post_creation_request.title,
-        description=post_creation_request.description,
-        location=f"POINT({post_creation_request.location.longitude} {post_creation_request.location.latitude})",
-        tags= list(existing_tags)
-    )
+    # LOGIC TO BUILD: image upload to cloud storage → assign new_post.image_url
+    # LOGIC TO BUILD: dispatch neighborhood alert notifications
 
-    # LOGIC TO BUILD: Handle image file validation and persistent cloud storage upload
-    # LOGIC TO BUILD: Assign the resulting permanent URL to new_post.image_url
+    return {
+        "status": "success",
+        "post_id": str(new_post.id),
+        "message": "Post created successfully"
+    }
 
-    try:
-        session.add(new_post)
-        session.commit()
-        session.refresh(new_post)
+# OLD CODE MIGHT REUSE DON'T DELETE
 
-        # LOGIC TO BUILD: Dispatch events for "Community Interaction Alerts" to notify nearby neighbors
-
-        return {
-            "status": "success",
-            "post_id": new_post.id,
-            "message": "Post created successfully"
-        }
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail="Database commit failed")
+# @router.post("/posts", summary="Create a new community post")
+# def create_post(
+#     post_creation_request: PostCreationRequest,
+#     session: Session = Depends(get_db)
+# ):
+#     results = session.execute(
+#         select(User, Community)
+#         .join(Community, Community.id == post_creation_request.community_id)
+#         .where(User.id == post_creation_request.author_id)
+#     ).first()
+#
+#     if not results:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Author or Community not found"
+#         )
+#
+#     author, community = results
+#
+#     existing_tags = session.execute(
+#         select(Tag).where(Tag.name.in_(post_creation_request.tags))
+#     ).scalars().all()
+#
+#     new_post = Post(
+#         author_id=post_creation_request.author_id,
+#         community_id=post_creation_request.community_id,
+#         post_type=post_creation_request.post_type,
+#         title=post_creation_request.title,
+#         description=post_creation_request.description,
+#         location=f"POINT({post_creation_request.location.longitude} {post_creation_request.location.latitude})",
+#         tags= list(existing_tags)
+#     )
+#
+#     # LOGIC TO BUILD: Handle image file validation and persistent cloud storage upload
+#     # LOGIC TO BUILD: Assign the resulting permanent URL to new_post.image_url
+#
+#     try:
+#         session.add(new_post)
+#         session.commit()
+#         session.refresh(new_post)
+#
+#         # LOGIC TO BUILD: Dispatch events for "Community Interaction Alerts" to notify nearby neighbors
+#
+#         return {
+#             "status": "success",
+#             "post_id": new_post.id,
+#             "message": "Post created successfully"
+#         }
+#     except Exception as e:
+#         session.rollback()
+#         raise HTTPException(status_code=500, detail="Database commit failed")
 
 
 @router.get(
@@ -260,12 +296,19 @@ def get_post(
 
 
 @router.post("/posts/{post_id}/bookmark", summary="Bookmark a post")
-def bookmark_post(post_id: UUID):
-    """
-    Task:
-    - Insert a record into the `bookmarks` association table linking the current user to this post.
-    """
-    return {"message": f"Logic to bookmark post {post_id} not implemented."}
+def bookmark_post(
+    post_id: UUID,
+    body: BookmarkRequest,
+    session: Session = Depends(get_db)
+):
+    result = bookmark_post_for_user(session, post_id, body.user_id)
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if not result:
+        raise HTTPException(status_code=409, detail="Post already bookmarked")
+
+    return {"status": "success", "message": "Post bookmarked"}
 
 
 @router.get(
