@@ -39,7 +39,6 @@ class PostSearchResponse(BaseModel):
 class PostCreationRequest(BaseModel):
     community_id: UUID
     author_id: UUID
-    community_id: UUID
     post_type: str
     title: str
     description: str
@@ -47,6 +46,8 @@ class PostCreationRequest(BaseModel):
     location: PostLocation
     tags: list[str]
 
+class BookmarkRequest(BaseModel):
+    user_id: UUID
 
 class CommunityPost(OutgoingBaseResponse):
     post_id: str
