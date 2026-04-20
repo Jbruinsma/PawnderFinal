@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     # Future Auth configuration (Sia/Devin will need these later)
     # secret_key: str = "a_very_secret_key_for_development"
-    secret_key: str = "a_very_secret_key_for_development"
+    secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
