@@ -13,7 +13,8 @@ from app.models import Community, User, user_communities, Post, Tag
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
-from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest
+from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
+    ExistingTag
 from app.utils.formatting_utils import format_post
 
 router = APIRouter(
@@ -267,13 +268,28 @@ def bookmark_post(post_id: UUID):
     return {"message": f"Logic to bookmark post {post_id} not implemented."}
 
 
-# --- UTILITY ENDPOINTS ---
+@router.get(
+    path="/tags",
+    summary="Get all available tags",
+    response_model=ExistingTagsResponseModel
+)
+def get_tags(
+        search: Optional[str] = Query(None),
+        session: Session = Depends(get_db)
+) -> ExistingTagsResponseModel:
+    stmt = select(Tag).limit(15)
 
-@router.get("/tags", summary="Get all available tags")
-def get_tags():
-    """
-    Task:
-    - Query the `Tag` table.
-    - Return a list of all system tags (e.g., Category: Species, Name: Dog) for Matthew's frontend dropdowns.
-    """
-    return {"message": "Endpoint not implemented yet."}
+    if search:
+        stmt = stmt.where(Tag.name.contains(search))
+
+    db_tags = session.execute(stmt).scalars().all()
+
+    return ExistingTagsResponseModel(
+        tags= [
+            ExistingTag(
+                tag_id= tag.id,
+                name= tag.name,
+                category= tag.category
+            ) for tag in db_tags
+        ]
+    )

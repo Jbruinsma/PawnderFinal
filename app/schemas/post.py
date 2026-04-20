@@ -8,6 +8,16 @@ from pydantic import BaseModel
 from app.schemas.core import OutgoingBaseResponse
 
 
+class ExistingTag(OutgoingBaseResponse):
+    tag_id: str
+    category: str
+    name: str
+
+
+class ExistingTagsResponseModel(OutgoingBaseResponse):
+    tags: List[ExistingTag]
+
+
 class PostLocation(BaseModel):
     latitude: float
     longitude: float
