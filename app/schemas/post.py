@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, List, Dict
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -21,6 +22,18 @@ class PostSearchResponse(BaseModel):
     image_url: str | None
     status: str
     created_at: datetime
+    location: PostLocation
+    tags: list[str]
+
+
+class PostCreationRequest(BaseModel):
+    community_id: UUID
+    author_id: UUID
+    community_id: UUID
+    post_type: str
+    title: str
+    description: str
+    image_url: Optional[str] = None
     location: PostLocation
     tags: list[str]
 

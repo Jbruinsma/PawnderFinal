@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated, Optional, Any, Dict, Sequence, List
 from uuid import UUID
 
@@ -8,11 +9,11 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from app.database import get_db
-from app.models import Community, User, user_communities, Post
+from app.models import Community, User, user_communities, Post, Tag
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
-from app.schemas.post import CommunityPost, CommunityPostsResponse
+from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest
 from app.utils.formatting_utils import format_post
 
 router = APIRouter(
@@ -174,19 +175,58 @@ async def get_posts(
         posts= formatted_posts
     )
 
-@router.post("/posts", summary="Create a new community post")
-def create_post():
-    """
-    DFD Action: Processes "Create Post (Text, Image, Neighborhood Tag)".
-    Writes to D4: Community & Neighborhood Records.
 
-    Task:
-    - Accept schemas.PostCreate (title, description, post_type, location, tags).
-    - Save the core post to the `Post` table.
-    - Link the selected tags in the `post_tags` association table.
-    - Trigger any necessary "Community Interaction Alerts" logic.
-    """
-    return {"message": "Endpoint not implemented yet."}
+@router.post("/posts", summary="Create a new community post")
+def create_post(
+    post_creation_request: PostCreationRequest,
+    session: Session = Depends(get_db)
+):
+    results = session.execute(
+        select(User, Community)
+        .join(Community, Community.id == post_creation_request.community_id)
+        .where(User.id == post_creation_request.author_id)
+    ).first()
+
+    if not results:
+        raise HTTPException(
+            status_code=404,
+            detail="Author or Community not found"
+        )
+
+    author, community = results
+
+    existing_tags = session.execute(
+        select(Tag).where(Tag.name.in_(post_creation_request.tags))
+    ).scalars().all()
+
+    new_post = Post(
+        author_id=post_creation_request.author_id,
+        community_id=post_creation_request.community_id,
+        post_type=post_creation_request.post_type,
+        title=post_creation_request.title,
+        description=post_creation_request.description,
+        location=f"POINT({post_creation_request.location.longitude} {post_creation_request.location.latitude})",
+        tags= list(existing_tags)
+    )
+
+    # LOGIC TO BUILD: Handle image file validation and persistent cloud storage upload
+    # LOGIC TO BUILD: Assign the resulting permanent URL to new_post.image_url
+
+    try:
+        session.add(new_post)
+        session.commit()
+        session.refresh(new_post)
+
+        # LOGIC TO BUILD: Dispatch events for "Community Interaction Alerts" to notify nearby neighbors
+
+        return {
+            "status": "success",
+            "post_id": new_post.id,
+            "message": "Post created successfully"
+        }
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database commit failed")
 
 
 @router.get(
