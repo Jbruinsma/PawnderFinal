@@ -32,12 +32,14 @@ origins = [
     "http://localhost:8080",    # Flutter web (Our default port)
     "http://10.0.2.2:8000",     # Android emulator (Android can't reach the localhost directly)
     "http://localhost:8000",    # Local API testing (Postman, etc.)
+    "http://localhost:54134",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
+    allow_origin_regex=r"http://localhost:.*",
     allow_methods=["*"],
     allow_headers=["*"],
 )

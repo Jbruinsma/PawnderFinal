@@ -12,6 +12,7 @@ import 'package:pawnder_app/widgets/build_category_row.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
 import 'package:pawnder_app/widgets/build_pet_list.dart';
 import 'package:pawnder_app/widgets/build_search.dart';
+import 'package:pawnder_app/services/community_service.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -27,6 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late int _selectedNavIndex;
   String _selectedCategory = 'all';
   String _searchQuery = '';
+  List<Map<String, String>> _communityPosts = [];
+  bool _postsLoading = true;
 
   final List<Map<String, String>> _pets = const [
     {
@@ -61,61 +64,27 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   ];
 
-  final List<Map<String, String>> _communityPosts = const [
-    {
-      'id': 'missing-parrot-1',
-      'section': 'recent',
-      'title': 'Help me find my Parrot',
-      'author': 'Sheila Carr',
-      'location': 'Queens',
-      'posted': 'March 10th, 2026 at 4:32 PM',
-      'tags': 'Bird|LostPet|Queens',
-      'image': 'assets/images/animals.jpg',
-      'description':
-          'My parrot has been missing for 2 hours, he was last seen in our backyard. We live in a suburban neighborhood in Queens, specifically in Elmhurst. If anyone in the area spots him, he usually responds to his name (Sony), or mimics tweets.',
-    },
-    {
-      'id': 'missing-georgie-2',
-      'section': 'recent',
-      'title': 'Let\'s bring Georgie home',
-      'author': 'Martha Ellis',
-      'location': 'Brooklyn',
-      'posted': 'March 9th, 2026 at 8:00 AM',
-      'tags': 'Cat|LostPet|Brooklyn',
-      'image': 'assets/images/animals.jpg',
-      'description':
-          'Georgie slipped out of our apartment this morning and we are doing everything we can to find him. Please message me if you have seen a white and brown cat near downtown Brooklyn.',
-    },
-    {
-      'id': 'found-hedgehog-3',
-      'section': 'found',
-      'title': 'Who\'s hedgehog is this',
-      'author': 'Manny Ortiz',
-      'location': 'Manhattan',
-      'posted': 'March 10th, 2026 at 3:10 PM',
-      'tags': 'Manhattan|FoundPet|Hedgehog',
-      'image': 'assets/images/animals.jpg',
-      'description':
-          'Found a friendly hedgehog near 96th street around noon. It looks domesticated and seems well cared for. Reach out with details if this pet belongs to you.',
-    },
-    {
-      'id': 'found-cockatiel-4',
-      'section': 'found',
-      'title': 'Found this lil cockateel',
-      'author': 'Noah Fields',
-      'location': 'Queens',
-      'posted': 'March 8th, 2026 at 4:00 PM',
-      'tags': 'FoundPet|Bird|Queens',
-      'image': 'assets/images/animals.jpg',
-      'description':
-          'I found this cockatiel perched on my window this afternoon. It is very tame and responds to whistles. Please contact me if you can identify unique markings.',
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
     _selectedNavIndex = widget.initialNavIndex;
+    _loadCommunityPosts();
+  }
+
+  Future<void> _loadCommunityPosts() async {
+    try {
+      final posts = await CommunityService.getPosts(
+        '00000000-0000-0000-0000-000000000001',
+      );
+      if (mounted) {
+        setState(() {
+          _communityPosts = posts;
+          _postsLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _postsLoading = false);
+    }
   }
 
   @override
@@ -124,72 +93,77 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.powderBlue,
       body: SafeArea(
         child: switch (_selectedNavIndex) {
-          1 => CommunityScreen(
-            posts: _communityPosts,
-            onPostTap: (post) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MissingPostDetailsScreen(post: post),
-                ),
-              );
-            },
-            onAddListingTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ListingScreen(),
-                ),
-              );
-            },
-            onCommunityTap: (community) {
-              final filteredPosts = _communityPosts.where((post) {
-                final tags = (post['tags'] ?? '').toLowerCase();
-                final location = (post['location'] ?? '').toLowerCase();
-                final title = (post['title'] ?? '').toLowerCase();
-                final description = (post['description'] ?? '').toLowerCase();
+          1 => _postsLoading
+              ? const Center(child: CircularProgressIndicator())
+              : CommunityScreen(
+                  posts: _communityPosts,
+                  onPostTap: (post) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MissingPostDetailsScreen(post: post),
+                      ),
+                    );
+                  },
+                  onAddListingTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ListingScreen(),
+                      ),
+                    );
+                  },
+                  onCommunityTap: (community) {
+                    final filteredPosts = _communityPosts.where((post) {
+                      final tags = (post['tags'] ?? '').toLowerCase();
+                      final location = (post['location'] ?? '').toLowerCase();
+                      final title = (post['title'] ?? '').toLowerCase();
+                      final description =
+                          (post['description'] ?? '').toLowerCase();
 
-                return switch (community.title) {
-                  'Lost Critters' =>
-                    (post['section'] ?? '') == 'recent' ||
-                    tags.contains('lostpet') ||
-                    title.contains('find') ||
-                    description.contains('missing'),
-                  'Bird Lovers' =>
-                    tags.contains('bird') || title.contains('parrot'),
-                  'Brooklyn' =>
-                    tags.contains('brooklyn') || location.contains('brooklyn'),
-                  _ => false,
-                };
-              }).toList();
+                      return switch (community.title) {
+                        'Lost Critters' =>
+                          (post['section'] ?? '') == 'recent' ||
+                              tags.contains('lostpet') ||
+                              title.contains('find') ||
+                              description.contains('missing'),
+                        'Bird Lovers' =>
+                          tags.contains('bird') || title.contains('parrot'),
+                        'Brooklyn' =>
+                          tags.contains('brooklyn') ||
+                              location.contains('brooklyn'),
+                        _ => false,
+                      };
+                    }).toList();
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CommunityPostsScreen(
-                    title: community.title,
-                    posts: filteredPosts,
-                    onPostTap: (post) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MissingPostDetailsScreen(post: post),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CommunityPostsScreen(
+                          title: community.title,
+                          posts: filteredPosts,
+                          onPostTap: (post) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    MissingPostDetailsScreen(post: post),
+                              ),
+                            );
+                          },
+                          onAddListingTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ListingScreen(),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                    onAddListingTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ListingScreen(),
-                        ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
           2 => const ChatScreen(),
           3 => const ProfileScreen(),
           _ => _buildAdoptionView(context),
@@ -265,7 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
               onPetTap: (pet) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => PetDetailsScreen(pet: pet)),
+                  MaterialPageRoute(
+                      builder: (_) => PetDetailsScreen(pet: pet)),
                 );
               },
             ),
@@ -274,5 +249,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 }
