@@ -124,10 +124,18 @@ def seed() -> None:
             latitude=40.7119,
         )
 
+        # Add more tags here seamlessly :) - mo was here haha
         dog_tag = get_or_create_tag(db, category="Species", name="Dog")
         cat_tag = get_or_create_tag(db, category="Species", name="Cat")
         lost_tag = get_or_create_tag(db, category="Status", name="Lost")
         found_tag = get_or_create_tag(db, category="Status", name="Found")
+
+        get_or_create_tag(db, category="Species", name="Bird")
+        get_or_create_tag(db, category="Species", name="Rodent")
+        get_or_create_tag(db, category="Status", name="LostPet")
+        get_or_create_tag(db, category="Status", name="FoundPet")
+        get_or_create_tag(db, category="Location", name="Brooklyn")
+        get_or_create_tag(db, category="Location", name="Queens")
 
         # Community must be created before posts
         tribeca_watch = get_or_create_community(
