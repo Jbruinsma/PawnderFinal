@@ -1,142 +1,215 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/screens/auth/login_screen.dart';
-import 'package:pawnder_app/screens/auth/register_screen.dart';
-import 'package:pawnder_app/theme.dart';
+import 'package:pawnder_app/services/auth_service.dart';
+import 'package:pawnder_app/widgets/auth_card.dart';
+import 'package:pawnder_app/widgets/auth_input.dart';
 import 'package:pawnder_app/widgets/auth_scaffold.dart';
-import 'package:pawnder_app/widgets/image_fallback.dart';
 
-class OnboardingScreen extends StatelessWidget {
+class OnboardingScreen extends StatefulWidget {
   static const String routeName = '/';
 
   const OnboardingScreen({super.key});
 
   @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final _authService = AuthService();
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitRegister() async {
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (fullName.isEmpty || email.isEmpty || password.isEmpty) {
+      _showMessage('Full name, email, and password are required.');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showMessage('Passwords do not match.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _authService.register(
+        fullName: fullName,
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage('Account created. You can log in now.');
+      Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(_authService.messageForError(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return AuthScaffold(
-      child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.seaBlue,
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'WELCOME TO\nPAWNDER',
-                            style: TextStyle(
-                              fontSize: 52,
-                              height: 0.98,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.8,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            'assets/images/animals.jpg',
-                            width: double.infinity,
-                            height: 226,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const ImageFallback();
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          "Create new connections with the\nperfect pet, and find the furry\nsoulmate you've been missing!",
-                          style: TextStyle(
-                            fontSize: 22,
-                            height: 1.35,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 58,
-                          child: FilledButton(
-                            onPressed: () => Navigator.pushNamed(
-                              context,
-                              RegisterScreen.routeName,
-                            ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.seaBlue,
-                              shape: const StadiumBorder(),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Expanded(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      'LETS GET STARTED!',
-                                      maxLines: 1,
-                                      style: TextStyle(
-                                        color: AppColors.seaBlue,
-                                        fontSize: 32,
-                                        height: 1,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Icon(
-                                  Icons.pets,
-                                  size: 28,
-                                  color: AppColors.ink,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Center(
-                          child: GestureDetector(
-                            onTap: () => Navigator.pushNamed(
-                              context,
-                              LoginScreen.routeName,
-                            ),
-                            child: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                'Already have an account? Click here!',
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: AppColors.ink,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+      child: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const AuthBrandHeader(
+                      title: 'Welcome to Pawnder',
+                      subtitle: 'Create your account to find nearby pets',
                     ),
-                  ),
+                    const SizedBox(height: 30),
+                    Text(
+                      'Full Name',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AuthInput(
+                      controller: _fullNameController,
+                      hintText: '',
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Email',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AuthInput(
+                      controller: _emailController,
+                      hintText: '',
+                      icon: Icons.mail_outline,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Password',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AuthInput(
+                      controller: _passwordController,
+                      hintText: '',
+                      icon: Icons.lock_outline,
+                      obscureText: true,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Confirm Password',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AuthInput(
+                      controller: _confirmPasswordController,
+                      hintText: '',
+                      icon: Icons.lock_outline,
+                      obscureText: true,
+                      textInputAction: TextInputAction.done,
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      height: 54,
+                      child: FilledButton(
+                        onPressed: _isSubmitting ? null : _submitRegister,
+                        child: _isSubmitting
+                            ? SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: theme.colorScheme.onPrimary,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('Continue'),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, size: 18),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pushNamed(context, LoginScreen.routeName),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      child: const Text(
+                        'Already have an account? Log in',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );

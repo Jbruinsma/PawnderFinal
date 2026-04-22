@@ -1,16 +1,15 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/screens/auth/forgot_password_screen.dart';
-import 'package:pawnder_app/screens/auth/register_screen.dart';
+import 'package:pawnder_app/screens/auth/onboarding_screen.dart';
 import 'package:pawnder_app/screens/home/home_screen.dart';
-import 'package:pawnder_app/services/api_service.dart';
-import 'package:pawnder_app/theme.dart';
+import 'package:pawnder_app/services/auth_service.dart';
 import 'package:pawnder_app/widgets/auth_card.dart';
 import 'package:pawnder_app/widgets/auth_input.dart';
 import 'package:pawnder_app/widgets/auth_scaffold.dart';
 
 class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
+
   const LoginScreen({super.key});
 
   @override
@@ -18,11 +17,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _authService = AuthService();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _rememberMe = false;
-  bool _isLoading = false;
-
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -31,46 +30,55 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email and password')),
-      );
+  Future<void> _submitLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Email and password are required.');
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
-      final response = await ApiService.postPublic('/auth/login', {
-        'email': _emailController.text.trim(),
-        'password': _passwordController.text.trim(),
-      });
+      await _authService.login(email: email, password: password);
 
-      final token = response.data['access_token'];
-      if (token != null) {
-        await ApiService.saveToken(token);
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, HomeScreen.routeName);
-        }
+      if (!mounted) {
+        return;
       }
-    } on DioException catch (e) {
-      final message = e.response?.data?['detail'] ?? 'Login failed';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message.toString())),
-        );
+
+      Navigator.pushReplacementNamed(context, HomeScreen.routeName);
+    } catch (error) {
+      if (!mounted) {
+        return;
       }
+
+      _showMessage(_authService.messageForError(error));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return AuthScaffold(
       child: AuthCard(
+        showHeaderImage: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
@@ -80,115 +88,147 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'WELCOME BACK!',
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: 43,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.7,
-                            color: AppColors.seaBlue,
-                          ),
-                        ),
+                    Text(
+                      'Welcome back',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 42),
-                    AuthInput(
-                      hintText: 'Email',
-                      icon: Icons.mail_outline,
-                      controller: _emailController,
+                    const SizedBox(height: 6),
+                    Text(
+                      'Log back in below',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Email',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     AuthInput(
-                      hintText: 'Password',
+                      controller: _emailController,
+                      hintText: '',
+                      icon: Icons.mail_outline,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Password',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AuthInput(
+                      controller: _passwordController,
+                      hintText: '',
                       icon: Icons.lock_outline,
                       obscureText: true,
-                      controller: _passwordController,
+                      textInputAction: TextInputAction.done,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Checkbox(
                           value: _rememberMe,
-                          onChanged: (value) =>
-                              setState(() => _rememberMe = value ?? false),
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value ?? false;
+                            });
+                          },
                           visualDensity: const VisualDensity(
-                              horizontal: -4, vertical: -4),
-                          side: const BorderSide(color: AppColors.lineGray),
+                            horizontal: -4,
+                            vertical: -4,
+                          ),
+                          side: BorderSide(color: theme.dividerColor),
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
                         ),
-                        const Text('Remember me',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.lineGray,
-                                fontWeight: FontWeight.w500)),
+                        Text(
+                          'Remember me',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                         const Spacer(),
                         GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    const ForgotPasswordScreen()),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const ForgotPasswordScreen(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          child: const Text('Forgot Password?',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.seaBlue,
-                                  fontWeight: FontWeight.w500)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 52),
-                    Align(
-                      alignment: Alignment.center,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 290),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: FilledButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.seaBlue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: FilledButton(
+                        onPressed: _isSubmitting ? null : _submitLogin,
+                        child: _isSubmitting
+                            ? SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: theme.colorScheme.onPrimary,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('Continue'),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, size: 18),
+                                ],
                               ),
-                            ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text('LOG IN',
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 34,
-                                            height: 1,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: -0.5)),
-                                  ),
-                          ),
-                        ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () => Navigator.pushReplacementNamed(
-                            context, RegisterScreen.routeName),
-                        child: const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text("Don't have an account? Create one",
-                              maxLines: 1,
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.ink,
-                                  fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 18),
+                    TextButton(
+                      onPressed: () => Navigator.pushReplacementNamed(
+                        context,
+                        OnboardingScreen.routeName,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      child: const Text(
+                        "Don't have an account? Create one",
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),

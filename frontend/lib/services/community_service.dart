@@ -1,60 +1,36 @@
-import 'api_service.dart';
+import 'package:pawnder_app/models/community.dart';
+import 'package:pawnder_app/services/api_client.dart';
 
 class CommunityService {
-  static Future<List<Map<String, String>>> getPosts(String communityId) async {
-    final response = await ApiService.get(
-      '/community/posts',
-      params: {'community_id': communityId, 'offset': 1, 'limit': 20},
-    );
+  CommunityService({ApiClient? apiClient})
+    : _apiClient = apiClient ?? ApiClient();
 
-    final List<dynamic> raw = response.data['posts'] ?? [];
+  final ApiClient _apiClient;
 
-    return raw.map<Map<String, String>>((post) {
-      final location = post['location'] as Map<String, dynamic>? ?? {};
-      final tags = (post['tags'] as List<dynamic>?)?.join('|') ?? '';
-
-      return {
-        'id': post['postId']?.toString() ?? '',
-        'section': (post['postType'] ?? '').toLowerCase().contains('lost')
-            ? 'recent'
-            : 'found',
-        'title': post['title']?.toString() ?? '',
-        'author': post['authorUsername']?.toString() ?? 'Unknown',
-        'location': '${location['latitude'] ?? ''}, ${location['longitude'] ?? ''}',
-        'posted': post['createdAt']?.toString() ?? '',
-        'tags': tags,
-        'image': 'assets/images/animals.jpg',
-        'description': post['description']?.toString() ?? '',
-      };
-    }).toList();
-  }
-
-  static Future<List<Map<String, String>>> getNeighborhoods({
-    double latitude = 40.7128,
-    double longitude = -74.0060,
+  Future<List<Community>> getNeighborhoods({
+    required double latitude,
+    required double longitude,
   }) async {
-    final response = await ApiService.get(
-      '/community/neighborhoods',
-      params: {'latitude': latitude, 'longitude': longitude},
+    final response = await _apiClient.dio.get<Map<String, dynamic>>(
+      '/api/v1/community/neighborhoods',
+      queryParameters: {'latitude': latitude, 'longitude': longitude},
     );
 
-    final List<dynamic> raw = response.data['neighborhoods'] ?? [];
-    return raw.map<Map<String, String>>((n) => {
-      'id': n['id']?.toString() ?? '',
-      'name': n['name']?.toString() ?? '',
-      'description': n['description']?.toString() ?? '',
-    }).toList();
+    final neighborhoods =
+        response.data?['neighborhoods'] as List<dynamic>? ?? const [];
+
+    return neighborhoods
+        .map((json) => Community.fromJson(json as Map<String, dynamic>))
+        .toList();
   }
 
-    static Future<List<Map<String, String>>> getCommunities() async {
-      final response = await ApiService.get(
-        '/community/neighborhoods',
-        params: {'latitude': 40.7128, 'longitude': -74.0060},
-      );
-      final List<dynamic> raw = response.data['neighborhoods'] ?? [];
-      return raw.map<Map<String, String>>((n) => {
-        'id': n['id']?.toString() ?? '',
-        'name': n['name']?.toString() ?? '',
-      }).toList();
-    }
+  Future<void> joinNeighborhood({
+    required String communityId,
+    required String currentUserId,
+  }) async {
+    await _apiClient.dio.post<void>(
+      '/api/v1/community/neighborhoods/$communityId/join',
+      queryParameters: {'current_user_id': currentUserId},
+    );
+  }
 }

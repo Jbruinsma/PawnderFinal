@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/message_thread.dart';
 import 'package:pawnder_app/screens/home/message_thread_screen.dart';
-import 'package:pawnder_app/theme.dart';
-import 'package:pawnder_app/widgets/image_fallback.dart';
+import 'package:pawnder_app/services/message_service.dart';
+import 'package:pawnder_app/widgets/build_header.dart';
+import 'package:pawnder_app/widgets/pet_image.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -12,116 +13,78 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  static const List<MessageThread> _threads = [
-    MessageThread(
-      id: 'jade-scooba',
-      participantName: 'Jade Green',
-      title: 'Scooba adoption check-in',
-      subtitle: 'Interested in Scooba?',
-      unreadCount: 2,
-      lastUpdatedLabel: '2m ago',
-      messages: [
-        ThreadMessage(
-          text: 'Heyy! Are you still interested in meeting Scooba this week?',
-          isMine: false,
-          timestamp: '11:42 AM',
-        ),
-        ThreadMessage(
-          text: 'Yes, definitely. I can do Thursday after 6 if that still works.',
-          isMine: true,
-          timestamp: '11:45 AM',
-        ),
-        ThreadMessage(
-          text: 'Perfect. I can bring Scooba to the park near 5th and Dean.',
-          isMine: false,
-          timestamp: '11:47 AM',
-        ),
-      ],
-    ),
-    MessageThread(
-      id: 'martha-georgie',
-      participantName: 'Martha Ellis',
-      title: 'Georgie sighting update',
-      subtitle: 'Possible lead in Brooklyn',
-      unreadCount: 1,
-      lastUpdatedLabel: '18m ago',
-      messages: [
-        ThreadMessage(
-          text: 'Someone on Bergen said they may have seen Georgie near the deli.',
-          isMine: false,
-          timestamp: '10:22 AM',
-        ),
-        ThreadMessage(
-          text: 'Thank you. I am heading over there now to check.',
-          isMine: true,
-          timestamp: '10:28 AM',
-        ),
-      ],
-    ),
-    MessageThread(
-      id: 'noah-bird',
-      participantName: 'Noah Fields',
-      title: 'Bird pickup details',
-      subtitle: 'Waiting on confirmation',
-      unreadCount: 0,
-      lastUpdatedLabel: '1h ago',
-      messages: [
-        ThreadMessage(
-          text: 'If this is your cockatiel, send me a picture of the leg band.',
-          isMine: false,
-          timestamp: '9:05 AM',
-        ),
-        ThreadMessage(
-          text: 'I just sent it over. Let me know if you need another angle.',
-          isMine: true,
-          timestamp: '9:08 AM',
-        ),
-      ],
-    ),
-    MessageThread(
-      id: 'manny-hedgehog',
-      participantName: 'Manny Ortiz',
-      title: 'Hedgehog owner search',
-      subtitle: 'Resolved thread',
-      unreadCount: 0,
-      lastUpdatedLabel: 'Yesterday',
-      messages: [
-        ThreadMessage(
-          text: 'We found the owner. Thanks again for helping share the post.',
-          isMine: false,
-          timestamp: 'Yesterday',
-        ),
-        ThreadMessage(
-          text: 'That is awesome news. Glad the little guy made it home.',
-          isMine: true,
-          timestamp: 'Yesterday',
-        ),
-      ],
-    ),
-  ];
+  final _messageService = MessageService();
 
-  String _selectedThreadId = _threads.first.id;
+  List<MessageThread> _threads = const [];
+  String? _selectedThreadId;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  MessageThread get _selectedThread => _threads.firstWhere(
-        (thread) => thread.id == _selectedThreadId,
-        orElse: () => _threads.first,
-      );
+  MessageThread? get _selectedThread {
+    if (_threads.isEmpty) {
+      return null;
+    }
 
-  void _openThread(MessageThread thread) {
-    setState(() {
-      _selectedThreadId = thread.id;
-    });
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MessageThreadScreen(thread: thread),
-      ),
+    return _threads.firstWhere(
+      (thread) => thread.id == _selectedThreadId,
+      orElse: () => _threads.first,
     );
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadThreads();
+  }
+
+  Future<void> _loadThreads() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final threads = await _messageService.getThreads();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _threads = threads;
+        _selectedThreadId = threads.isEmpty ? null : threads.first.id;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _messageService.messageForError(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openThread(MessageThread thread) async {
+    setState(() {
+      _selectedThreadId = thread.id;
+    });
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MessageThreadScreen(thread: thread)),
+    );
+    await _loadThreads();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final selectedThread = _selectedThread;
 
     return Padding(
@@ -129,106 +92,105 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                padding: const EdgeInsets.all(3),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/images/animals.jpg',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const ImageFallback(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'MESSAGES',
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.6,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          const HomeHeader(
+            title: 'Messages',
+            subtitle: 'Conversations about pets and listings',
+            icon: Icons.mark_unread_chat_alt_outlined,
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            height: 42,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _threads.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final thread = _threads[index];
-                final isSelected = thread.id == selectedThread.id;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: () => _openThread(thread),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.seaBlue
-                          : const Color(0xFFF4F8FB),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.seaBlue
-                            : const Color(0xFFCAD7E0),
-                      ),
-                    ),
-                    child: Text(
-                      thread.participantName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF294250),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                );
-              },
+          if (_isLoading) const LinearProgressIndicator(minHeight: 3),
+          if (_errorMessage != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 12),
+          ],
+          if (_threads.isNotEmpty)
+            SizedBox(
+              height: 42,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _threads.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final thread = _threads[index];
+                  final isSelected = thread.id == selectedThread?.id;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => _openThread(thread),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? theme.colorScheme.primary
+                            : theme.cardColor,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: isSelected
+                              ? theme.colorScheme.primary
+                              : theme.dividerColor,
+                        ),
+                      ),
+                      child: Text(
+                        thread.participantName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          if (_threads.isNotEmpty) const SizedBox(height: 16),
           Expanded(
-            child: ListView.separated(
-              itemCount: _threads.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final thread = _threads[index];
-                final isSelected = thread.id == selectedThread.id;
-                return _ThreadListTile(
-                  thread: thread,
-                  isSelected: isSelected,
-                  onTap: () => _openThread(thread),
-                );
-              },
-            ),
+            child: _threads.isEmpty && !_isLoading
+                ? Center(
+                    child: Text(
+                      'No messages yet',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _threads.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final thread = _threads[index];
+                      final isSelected = thread.id == selectedThread?.id;
+                      return _ThreadListTile(
+                        thread: thread,
+                        isSelected: isSelected,
+                        onTap: () => _openThread(thread),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -249,6 +211,9 @@ class _ThreadListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -256,26 +221,24 @@ class _ThreadListTile extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.seaBlue : Colors.white,
+          color: isSelected ? theme.colorScheme.primary : theme.cardColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? AppColors.seaBlue
-                : const Color(0xFFD4E0E7),
+            color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
           ),
           boxShadow: isSelected
-              ? const [
+              ? [
                   BoxShadow(
-                    color: Color(0x22188393),
+                    color: Colors.black.withValues(alpha: isDark ? 0.34 : 0.14),
                     blurRadius: 14,
-                    offset: Offset(0, 8),
+                    offset: const Offset(0, 8),
                   ),
                 ]
-              : const [
+              : [
                   BoxShadow(
-                    color: Color(0x0D000000),
+                    color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.05),
                     blurRadius: 10,
-                    offset: Offset(0, 4),
+                    offset: const Offset(0, 4),
                   ),
                 ],
         ),
@@ -283,15 +246,15 @@ class _ThreadListTile extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: const Color(0xFFE9F2F8),
+              backgroundColor: isSelected
+                  ? theme.cardColor
+                  : theme.scaffoldBackgroundColor,
               child: ClipOval(
-                child: Image.asset(
-                  'assets/images/animals.jpg',
+                child: PetImage(
+                  image: 'mock://thread/${thread.id}',
                   width: 44,
                   height: 44,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const ImageFallback(),
+                  seed: thread.id,
                 ),
               ),
             ),
@@ -310,9 +273,9 @@ class _ThreadListTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF202A34),
-                            fontSize: 15,
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSurface,
+                            fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -322,9 +285,11 @@ class _ThreadListTile extends StatelessWidget {
                         thread.lastUpdatedLabel,
                         style: TextStyle(
                           color: isSelected
-                              ? const Color(0xFFD8F3F7)
-                              : const Color(0xFF66737E),
-                          fontSize: 11,
+                              ? theme.colorScheme.onPrimary.withValues(
+                                  alpha: 0.72,
+                                )
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -336,9 +301,11 @@ class _ThreadListTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : const Color(0xFF14212A),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
+                      color: isSelected
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -348,9 +315,9 @@ class _ThreadListTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isSelected
-                          ? const Color(0xFFE0F5F8)
-                          : AppColors.bodyText,
-                      fontSize: 12,
+                          ? theme.colorScheme.onPrimary.withValues(alpha: 0.78)
+                          : theme.colorScheme.onSurfaceVariant,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -360,31 +327,31 @@ class _ThreadListTile extends StatelessWidget {
             const SizedBox(width: 10),
             if (thread.unreadCount > 0)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? Colors.white
-                      : const Color(0xFFE0F6FA),
+                      ? theme.colorScheme.onPrimary.withValues(alpha: 0.16)
+                      : theme.scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   '${thread.unreadCount}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.seaBlue,
+                    color: isSelected
+                        ? theme.colorScheme.onPrimary
+                        : theme.colorScheme.onSurface,
                   ),
                 ),
               )
             else
               Icon(
                 Icons.chevron_right_rounded,
+                size: 20,
                 color: isSelected
-                    ? const Color(0xFFD8F3F7)
-                    : const Color(0xFF7C8A95),
+                    ? theme.colorScheme.onPrimary.withValues(alpha: 0.72)
+                    : theme.colorScheme.onSurfaceVariant,
               ),
           ],
         ),

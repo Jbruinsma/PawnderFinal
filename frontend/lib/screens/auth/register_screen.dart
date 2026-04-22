@@ -1,14 +1,13 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/screens/auth/login_screen.dart';
-import 'package:pawnder_app/services/api_service.dart';
-import 'package:pawnder_app/theme.dart';
+import 'package:pawnder_app/services/auth_service.dart';
 import 'package:pawnder_app/widgets/auth_card.dart';
 import 'package:pawnder_app/widgets/auth_input.dart';
 import 'package:pawnder_app/widgets/auth_scaffold.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const String routeName = '/register';
+
   const RegisterScreen({super.key});
 
   @override
@@ -16,72 +15,80 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  bool _isLoading = false;
-
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final _authService = AuthService();
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
-    final name = _nameController.text.trim();
+  Future<void> _submitRegister() async {
+    final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    final confirm = _confirmPasswordController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
+    if (fullName.isEmpty || email.isEmpty || password.isEmpty) {
+      _showMessage('Full name, email, and password are required.');
       return;
     }
 
-    if (password != confirm) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+    if (password != confirmPassword) {
+      _showMessage('Passwords do not match.');
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
-      await ApiService.postPublic('/auth/register', {
-        'full_name': name,
-        'email': email,
-        'password': password,
-        'role': 'Community User',
-      });
+      await _authService.register(
+        fullName: fullName,
+        email: email,
+        password: password,
+      );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account created! Please log in.')),
-        );
-        Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+      if (!mounted) {
+        return;
       }
-    } on DioException catch (e) {
-      final message = e.response?.data?['detail'] ?? 'Registration failed';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message.toString())),
-        );
+
+      _showMessage('Account created. You can log in now.');
+      Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+    } catch (error) {
+      if (!mounted) {
+        return;
       }
+
+      _showMessage(_authService.messageForError(error));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return AuthScaffold(
       child: AuthCard(
         child: LayoutBuilder(
@@ -93,101 +100,117 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'GET STARTED',
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.7,
-                            color: AppColors.seaBlue,
-                          ),
-                        ),
+                    const AuthBrandHeader(
+                      title: 'Create your Pawnder account',
+                      subtitle:
+                          'Join your neighborhood pet network and start posting alerts.',
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Full Name',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 8),
                     AuthInput(
-                      hintText: 'Full Name',
-                      controller: _nameController,
+                      controller: _fullNameController,
+                      hintText: '',
+                      textInputAction: TextInputAction.next,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Email',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     AuthInput(
-                      hintText: 'Email',
-                      icon: Icons.mail_outline,
                       controller: _emailController,
+                      hintText: '',
+                      icon: Icons.mail_outline,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
                     ),
-                    const SizedBox(height: 14),
-                    AuthInput(
-                      hintText: 'Password',
-                      icon: Icons.lock_outline,
-                      obscureText: true,
-                      controller: _passwordController,
-                    ),
-                    const SizedBox(height: 14),
-                    AuthInput(
-                      hintText: 'Confirm Password',
-                      icon: Icons.lock_outline,
-                      obscureText: true,
-                      controller: _confirmPasswordController,
-                    ),
-                    const SizedBox(height: 28),
-                    Align(
-                      alignment: Alignment.center,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 290),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: FilledButton(
-                            onPressed: _isLoading ? null : _handleRegister,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.seaBlue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      'CREATE ACCOUNT',
-                                      maxLines: 1,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 34,
-                                        height: 1,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Password',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () => Navigator.pushReplacementNamed(
-                          context,
-                          LoginScreen.routeName,
-                        ),
-                        child: const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'Already have an account? Click here!',
-                            maxLines: 1,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    const SizedBox(height: 8),
+                    AuthInput(
+                      controller: _passwordController,
+                      hintText: '',
+                      icon: Icons.lock_outline,
+                      obscureText: true,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Confirm Password',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AuthInput(
+                      controller: _confirmPasswordController,
+                      hintText: '',
+                      icon: Icons.lock_outline,
+                      obscureText: true,
+                      textInputAction: TextInputAction.done,
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: FilledButton(
+                        onPressed: _isSubmitting ? null : _submitRegister,
+                        child: _isSubmitting
+                            ? SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: theme.colorScheme.onPrimary,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('Continue'),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, size: 18),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    TextButton(
+                      onPressed: () => Navigator.pushReplacementNamed(
+                        context,
+                        LoginScreen.routeName,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      child: const Text(
+                        'Already have an account? Log in',
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),

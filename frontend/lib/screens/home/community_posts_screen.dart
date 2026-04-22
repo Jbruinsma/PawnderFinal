@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
-import 'package:pawnder_app/widgets/image_fallback.dart';
+import 'package:pawnder_app/widgets/build_header.dart';
 
 class CommunityPostsScreen extends StatefulWidget {
   final String title;
@@ -26,50 +25,36 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppColors.powderBlue,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/animals.jpg',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ImageFallback(),
-                      ),
-                    ),
+              HomeHeader(
+                title: 'RECENT POSTS',
+                subtitle: widget.title,
+                icon: Icons.groups_2_outlined,
+                trailing: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: theme.colorScheme.onSurface,
                   ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppColors.seaBlue,
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 16),
               Container(
                 height: 52,
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.cardColor,
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: theme.dividerColor),
                 ),
                 child: Row(
                   children: [
@@ -84,47 +69,22 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                           hintText: 'Search for pets...',
                           border: InputBorder.none,
                         ),
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: TextStyle(
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF24313E),
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.filter_alt_outlined,
-                      color: Color(0xFF2D3640),
+                      size: 20,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 18),
-              const FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'RECENTLY POSTED',
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 22,
-                  color: Color(0xFF222222),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 14),
               Expanded(
                 child: buildCommunityPostsFeed(
                   posts: widget.posts,
@@ -139,10 +99,11 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                   child: FilledButton(
                     onPressed: widget.onAddListingTap,
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1C1C1C),
-                      elevation: 2,
-                      shadowColor: const Color(0x22000000),
+                      backgroundColor: theme.cardColor,
+                      foregroundColor: theme.colorScheme.onSurface,
+                      elevation: theme.brightness == Brightness.dark ? 0 : 2,
+                      shadowColor: const Color(0x18000000),
+                      side: BorderSide(color: theme.dividerColor),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 10,
@@ -154,7 +115,10 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                       child: Text(
                         'Add listing here +',
                         maxLines: 1,
-                        style: TextStyle(fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),

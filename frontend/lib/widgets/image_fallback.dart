@@ -6,22 +6,23 @@ class ImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       height: 216,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFB4D8DE), Color(0xFFF2CCA2)],
+          colors: isDark
+              ? const [AppColors.darkElevated, AppColors.darkSurface]
+              : const [Color(0xFFB4D8DE), Color(0xFFF2CCA2)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Center(
-        child: Icon(
-          Icons.pets,
-          size: 88,
-          color: AppColors.seaBlue,
-        ),
+      child: Center(
+        child: Icon(Icons.pets, size: 88, color: theme.colorScheme.onSurface),
       ),
     );
   }

@@ -6,6 +6,8 @@ class AuthInput extends StatelessWidget {
   final IconData? icon;
   final bool obscureText;
   final TextEditingController? controller;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
 
   const AuthInput({
     super.key,
@@ -13,40 +15,42 @@ class AuthInput extends StatelessWidget {
     this.icon,
     this.obscureText = false,
     this.controller,
+    this.keyboardType,
+    this.textInputAction,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.inputBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
+        color: isDark ? AppColors.darkElevated : theme.cardColor,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Row(
         children: [
           if (icon != null)
-            Icon(icon, size: 20, color: const Color(0xFF7E8A96)),
+            Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
           if (icon != null) const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: controller,
               obscureText: obscureText,
-              style: AppTextStyles.field,
+              keyboardType: keyboardType,
+              textInputAction: textInputAction,
+              style: AppTextStyles.field.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
               decoration: InputDecoration(
                 isDense: true,
                 hintText: hintText,
                 hintStyle: AppTextStyles.field.copyWith(
-                  color: const Color(0xFF8A95A1),
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
                 border: InputBorder.none,

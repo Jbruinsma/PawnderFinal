@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/screens/auth/login_screen.dart';
 import 'package:pawnder_app/screens/auth/onboarding_screen.dart';
-import 'package:pawnder_app/screens/auth/register_screen.dart';
 import 'package:pawnder_app/screens/home/home_screen.dart';
+import 'package:pawnder_app/theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppThemeController.load();
   runApp(const PawnderApp());
 }
 
@@ -13,22 +15,23 @@ class PawnderApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Pawnder',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      initialRoute: OnboardingScreen.routeName,
-      routes: {
-        OnboardingScreen.routeName: (_) => const OnboardingScreen(),
-        RegisterScreen.routeName: (_) => const RegisterScreen(),
-        LoginScreen.routeName: (_) => const LoginScreen(),
-        HomeScreen.routeName: (_) => const HomeScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppThemeController.mode,
+      builder: (context, themeMode, _) {
+        return MaterialApp(
+          title: 'Pawnder',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: themeMode,
+          initialRoute: OnboardingScreen.routeName,
+          routes: {
+            OnboardingScreen.routeName: (_) => const OnboardingScreen(),
+            LoginScreen.routeName: (_) => const LoginScreen(),
+            HomeScreen.routeName: (_) => const HomeScreen(),
+          },
+        );
       },
     );
   }
 }
-
-
