@@ -1,16 +1,40 @@
-# pawnder_app
+# Pawnder App
 
-A new Flutter project.
+Flutter frontend for Pawnder.
 
-## Getting Started
+## Running on a Physical Phone
 
-This project is a starting point for a Flutter application.
+Do not use `localhost` for the backend when running on a real phone. On a
+physical device, `localhost` points to the phone itself, not the computer
+running Docker.
 
-A few resources to get you started if this is your first Flutter project:
+1. Make sure the phone and computer are on the same Wi-Fi.
+2. Start the backend so `http://localhost:8000/docs` works on the computer.
+3. Find the computer's Wi-Fi IP address.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+On macOS:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+ipconfig getifaddr en0
+```
+
+If that returns nothing, use:
+
+```sh
+ifconfig en0 | grep "inet "
+```
+
+4. Run Flutter with that IP:
+
+```sh
+flutter run --dart-define=API_BASE_URL=http://YOUR_MAC_IP:8000
+```
+
+Example:
+
+```sh
+flutter run --dart-define=API_BASE_URL=http://192.168.1.42:8000
+```
+
+You should also be able to open `http://YOUR_MAC_IP:8000/docs` in Safari on the
+phone. If Safari cannot reach it, the app cannot either.

@@ -15,7 +15,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const PawnderApp());
 
-    expect(find.text('WELCOME TO\nPAWNDER'), findsOneWidget);
-    expect(find.text('LETS GET STARTED!'), findsOneWidget);
+    expect(find.text('Welcome to Pawnder'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
   });
 }

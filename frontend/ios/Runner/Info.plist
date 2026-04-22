@@ -45,9 +45,18 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Pawnder connects to your local development backend while testing.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pawnder needs photo library access so you can attach a listing photo.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Pawnder needs camera access so you can take a listing photo.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Pawnder uses your location to show nearby lost and found pet posts.</string>
 </dict>
 </plist>

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pawnder_app/theme.dart';
 
 class AuthScaffold extends StatelessWidget {
   final Widget child;
@@ -9,7 +8,7 @@ class AuthScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.powderBlue,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SizedBox.expand(child: child),
     );
   }

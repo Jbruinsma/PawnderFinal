@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/theme.dart';
-import 'package:pawnder_app/widgets/image_fallback.dart';
+import 'package:pawnder_app/widgets/pet_image.dart';
 
 Widget buildCommunityPostsFeed({
   required List<Map<String, String>> posts,
@@ -23,20 +23,28 @@ Widget buildCommunityPostsFeed({
         }).toList();
 
   if (visiblePosts.isEmpty) {
-    return const Center(
-      child: Text(
-        'No posts found',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: AppColors.bodyText,
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Center(
+          child: Text(
+            'No posts found',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      },
     );
   }
 
   final recentPosts = visiblePosts
       .where((post) => post['section'] == 'recent')
+      .toList();
+  final foundPosts = visiblePosts
+      .where((post) => post['section'] == 'found')
       .toList();
 
   return ListView(
@@ -48,6 +56,14 @@ Widget buildCommunityPostsFeed({
           posts: recentPosts,
           onPostTap: onPostTap,
         ),
+      if (foundPosts.isNotEmpty) ...[
+        const SizedBox(height: 24),
+        _PostSection(
+          title: 'Found Pets',
+          posts: foundPosts,
+          onPostTap: onPostTap,
+        ),
+      ],
     ],
   );
 }
@@ -66,6 +82,7 @@ class _PostSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final useWideCardsLayout = posts.length <= 2;
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,35 +90,31 @@ class _PostSection extends StatelessWidget {
         Text(
           title,
           style: TextStyle(
-            fontSize: 38,
+            fontSize: 24,
             height: 1,
             fontWeight: FontWeight.w900,
-            letterSpacing: -0.7,
-            color: const Color(0xFF131313),
+            color: theme.colorScheme.onSurface,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         if (useWideCardsLayout)
-          SizedBox(
-            height: 238,
-            child: Row(
-              children: [
-                for (var i = 0; i < posts.length; i++) ...[
-                  Expanded(
-                    child: _PostCard(
-                      post: posts[i],
-                      onTap: () => onPostTap(posts[i]),
-                      useWideLayout: true,
-                    ),
+          Row(
+            children: [
+              for (var i = 0; i < posts.length; i++) ...[
+                Expanded(
+                  child: _PostCard(
+                    post: posts[i],
+                    onTap: () => onPostTap(posts[i]),
+                    useWideLayout: true,
                   ),
-                  if (i < posts.length - 1) const SizedBox(width: 14),
-                ],
+                ),
+                if (i < posts.length - 1) const SizedBox(width: 14),
               ],
-            ),
+            ],
           )
         else
           SizedBox(
-            height: 238,
+            height: 258,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: posts.length,
@@ -134,83 +147,163 @@ class _PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final tags = (post['tags'] ?? '')
         .split('|')
         .where((tag) => tag.trim().isNotEmpty)
         .toList();
 
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
       onTap: onTap,
-      child: Container(
-        width: useWideLayout ? null : 170,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppColors.seaBlue,
-          borderRadius: BorderRadius.circular(20),
-        ),
+      child: SizedBox(
+        width: useWideLayout ? null : 184,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                post['image'] ?? 'assets/images/animals.jpg',
-                height: 92,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox(height: 92, child: ImageFallback()),
+            AspectRatio(
+              aspectRatio: 1.18,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBackground : theme.cardColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  clipBehavior: Clip.hardEdge,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: -3,
+                        top: -3,
+                        right: -3,
+                        bottom: -3,
+                        child: PetImage(
+                          image: post['image'],
+                          height: double.infinity,
+                          width: double.infinity,
+                          preserveSubject: true,
+                          seed: post['id'] ?? post['title'] ?? '',
+                        ),
+                      ),
+                      Positioned(
+                        left: 8,
+                        top: 8,
+                        child: _StatusBadge(
+                          label: (post['section'] ?? '') == 'found'
+                              ? 'Found'
+                              : 'Lost',
+                        ),
+                      ),
+                      const Positioned(
+                        right: 8,
+                        top: 8,
+                        child: _RoundCardAction(
+                          icon: Icons.favorite_border_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
+            Text(
+              (post['section'] ?? '') == 'found'
+                  ? 'Found nearby'
+                  : 'Missing pet',
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
             Text(
               post['title'] ?? 'Missing pet post',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                height: 1,
-                fontWeight: FontWeight.w900,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 17,
+                height: 1.12,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: tags.take(3).map((tag) => _TagChip(tag: tag)).toList(),
+              children: tags.take(2).map((tag) => _TagChip(tag: tag)).toList(),
             ),
-            const Spacer(),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0x22000000),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SizedBox(
-                height: 12,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Posted ${post['posted'] ?? 'March 10th, 2026'}',
-                      style: const TextStyle(
-                        color: Color(0xFFD7F3F7),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+            Text(
+              'Posted ${post['posted'] ?? 'March 10th, 2026'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+
+  const _StatusBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.78)
+            : Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundCardAction extends StatelessWidget {
+  final IconData icon;
+
+  const _RoundCardAction({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.72)
+            : Colors.white.withValues(alpha: 0.94),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: theme.colorScheme.onSurface, size: 19),
     );
   }
 }
@@ -222,16 +315,19 @@ class _TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFD8F1F5),
+        color: isDark ? AppColors.darkElevated : const Color(0xFFEDEFF1),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         tag,
-        style: const TextStyle(
-          color: AppColors.seaBlue,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
           fontSize: 10,
           fontWeight: FontWeight.w900,
         ),

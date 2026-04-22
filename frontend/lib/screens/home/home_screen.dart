@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pawnder_app/models/community.dart';
+import 'package:pawnder_app/models/community_post.dart';
+import 'package:pawnder_app/models/current_user.dart';
 import 'package:pawnder_app/screens/home/community_posts_screen.dart';
 import 'package:pawnder_app/screens/home/chat_screen.dart';
 import 'package:pawnder_app/screens/home/community_screen.dart';
@@ -6,13 +9,14 @@ import 'package:pawnder_app/screens/home/listing_screen.dart';
 import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
 import 'package:pawnder_app/screens/home/profile_screen.dart';
 import 'package:pawnder_app/screens/home/pet_details_screen.dart';
+import 'package:pawnder_app/services/auth_service.dart';
+import 'package:pawnder_app/services/community_service.dart';
+import 'package:pawnder_app/services/location_service.dart';
+import 'package:pawnder_app/services/post_service.dart';
 import 'package:pawnder_app/widgets/build_bottom_nav.dart';
-import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_category_row.dart';
-import 'package:pawnder_app/widgets/build_header.dart';
 import 'package:pawnder_app/widgets/build_pet_list.dart';
 import 'package:pawnder_app/widgets/build_search.dart';
-import 'package:pawnder_app/services/community_service.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -25,144 +29,488 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _authService = AuthService();
+  final _communityService = CommunityService();
+  final _locationService = LocationService();
+  final _postService = PostService();
+
   late int _selectedNavIndex;
   String _selectedCategory = 'all';
   String _searchQuery = '';
-  List<Map<String, String>> _communityPosts = [];
-  bool _postsLoading = true;
+  CurrentUser? _currentUser;
+  String? _defaultCommunityId;
+  List<Community> _nearbyCommunities = const [];
+  bool _isLoadingCommunityPosts = false;
+  bool _shouldShowFallbackCommunityPosts = true;
+  bool _shouldShowFallbackPets = true;
+
+  static const _defaultLatitude = 40.7128;
+  static const _defaultLongitude = -74.0060;
 
   final List<Map<String, String>> _pets = const [
     {
       'name': 'Pearline',
       'meta': 'Siamese, 4 months old',
       'category': 'cat',
-      'image': 'assets/images/animals.jpg',
+      'image': 'mock://sample-pet/pearline',
     },
     {
       'name': 'Scooba',
       'meta': 'Dalmatian, 2 yrs old',
       'category': 'dog',
-      'image': 'assets/images/animals.jpg',
+      'image': 'mock://sample-pet/scooba',
     },
     {
       'name': 'Table',
       'meta': 'Calico, 1 month old',
       'category': 'cat',
-      'image': 'assets/images/animals.jpg',
+      'image': 'mock://sample-pet/table',
     },
     {
       'name': 'AppleJax',
       'meta': 'American Bobtail, 2 yrs old',
       'category': 'cat',
-      'image': 'assets/images/animals.jpg',
+      'image': 'mock://sample-pet/applejax',
     },
     {
       'name': 'Pico',
       'meta': 'Cockatiel, 8 months old',
       'category': 'bird',
-      'image': 'assets/images/animals.jpg',
+      'image': 'mock://sample-pet/pico',
     },
   ];
+
+  static const List<Map<String, String>> _fallbackCommunityPosts = [
+    {
+      'id': 'missing-parrot-1',
+      'section': 'recent',
+      'title': 'Help me find my Parrot',
+      'author': 'Sheila Carr',
+      'location': 'Queens',
+      'posted': 'March 10th, 2026 at 4:32 PM',
+      'tags': 'Bird|LostPet|Queens',
+      'image': 'mock://sample-post/parrot',
+      'description':
+          'My parrot has been missing for 2 hours, he was last seen in our backyard. We live in a suburban neighborhood in Queens, specifically in Elmhurst. If anyone in the area spots him, he usually responds to his name (Sony), or mimics tweets.',
+    },
+    {
+      'id': 'missing-georgie-2',
+      'section': 'recent',
+      'title': 'Let\'s bring Georgie home',
+      'author': 'Martha Ellis',
+      'location': 'Brooklyn',
+      'posted': 'March 9th, 2026 at 8:00 AM',
+      'tags': 'Cat|LostPet|Brooklyn',
+      'image': 'mock://sample-post/georgie',
+      'description':
+          'Georgie slipped out of our apartment this morning and we are doing everything we can to find him. Please message me if you have seen a white and brown cat near downtown Brooklyn.',
+    },
+    {
+      'id': 'found-hedgehog-3',
+      'section': 'found',
+      'title': 'Who\'s hedgehog is this',
+      'author': 'Manny Ortiz',
+      'location': 'Manhattan',
+      'posted': 'March 10th, 2026 at 3:10 PM',
+      'tags': 'Manhattan|FoundPet|Hedgehog',
+      'image': 'mock://sample-post/hedgehog',
+      'description':
+          'Found a friendly hedgehog near 96th street around noon. It looks domesticated and seems well cared for. Reach out with details if this pet belongs to you.',
+    },
+    {
+      'id': 'found-cockatiel-4',
+      'section': 'found',
+      'title': 'Found this lil cockateel',
+      'author': 'Noah Fields',
+      'location': 'Queens',
+      'posted': 'March 8th, 2026 at 4:00 PM',
+      'tags': 'FoundPet|Bird|Queens',
+      'image': 'mock://sample-post/cockatiel',
+      'description':
+          'I found this cockatiel perched on my window this afternoon. It is very tame and responds to whistles. Please contact me if you can identify unique markings.',
+    },
+  ];
+
+  List<Map<String, String>> _communityPosts = [];
+  List<Map<String, String>> _nearbyPets = [];
+
+  List<Map<String, String>> get _visibleCommunityPosts {
+    return _shouldShowFallbackCommunityPosts
+        ? _fallbackCommunityPosts
+        : _communityPosts;
+  }
+
+  List<Map<String, String>> get _visiblePets {
+    return _shouldShowFallbackPets ? _pets : _nearbyPets;
+  }
 
   @override
   void initState() {
     super.initState();
     _selectedNavIndex = widget.initialNavIndex;
-    _loadCommunityPosts();
+    _loadCommunityData();
   }
 
-  Future<void> _loadCommunityPosts() async {
+  Future<void> _loadCommunityData() async {
+    setState(() {
+      _isLoadingCommunityPosts = true;
+    });
+
+    CurrentUser? currentUser = _currentUser;
+    Community? defaultCommunity;
+    List<Community> neighborhoods = const [];
+    List<CommunityPost> posts = const [];
+
     try {
-      final posts = await CommunityService.getPosts(
-        'cffd8c3f-40ee-47b7-84fc-b8bbe343887f',
+      currentUser = await _authService.getCurrentUser();
+    } catch (_) {
+      currentUser = null;
+    }
+
+    try {
+      final currentLocation = await _locationService
+          .requestAndSaveCurrentLocation();
+      final feedLatitude = currentLocation?.latitude ?? _defaultLatitude;
+      final feedLongitude = currentLocation?.longitude ?? _defaultLongitude;
+
+      neighborhoods = await _communityService.getNeighborhoods(
+        latitude: feedLatitude,
+        longitude: feedLongitude,
       );
+      defaultCommunity = neighborhoods.isEmpty ? null : neighborhoods.first;
+    } catch (_) {
+      defaultCommunity = null;
+      neighborhoods = const [];
+    }
+
+    try {
+      posts = await _loadPostsFor(defaultCommunity);
+    } catch (_) {
+      posts = const [];
+    }
+
+    try {
+      final communityPosts = posts.map((post) => post.toFeedMap()).toList();
+      final nearbyPets = posts.map((post) => post.toPetMap()).toList();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentUser = currentUser;
+        _defaultCommunityId = defaultCommunity?.id;
+        _nearbyCommunities = neighborhoods;
+        _communityPosts = communityPosts;
+        _nearbyPets = nearbyPets;
+        _shouldShowFallbackCommunityPosts = communityPosts.isEmpty;
+        _shouldShowFallbackPets = nearbyPets.isEmpty;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentUser = currentUser;
+        _defaultCommunityId = defaultCommunity?.id;
+        _nearbyCommunities = neighborhoods;
+        _shouldShowFallbackCommunityPosts = true;
+        _shouldShowFallbackPets = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Showing saved sample posts while the backend loads.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
       if (mounted) {
         setState(() {
-          _communityPosts = posts;
-          _postsLoading = false;
+          _isLoadingCommunityPosts = false;
         });
       }
+    }
+  }
+
+  Future<CurrentUser?> _loadCurrentUserForListing() async {
+    if (_currentUser != null) {
+      return _currentUser;
+    }
+
+    try {
+      final currentUser = await _authService.getCurrentUser();
+      if (mounted) {
+        setState(() {
+          _currentUser = currentUser;
+        });
+      }
+      return currentUser;
     } catch (_) {
-      if (mounted) setState(() => _postsLoading = false);
+      return null;
+    }
+  }
+
+  Future<String?> _loadDefaultCommunityIdForListing() async {
+    if (_defaultCommunityId != null) {
+      return _defaultCommunityId;
+    }
+
+    try {
+      final currentLocation = await _locationService
+          .requestAndSaveCurrentLocation();
+      final neighborhoods = await _communityService.getNeighborhoods(
+        latitude: currentLocation?.latitude ?? _defaultLatitude,
+        longitude: currentLocation?.longitude ?? _defaultLongitude,
+      );
+      final communityId = neighborhoods.isEmpty ? null : neighborhoods.first.id;
+
+      if (mounted) {
+        setState(() {
+          _defaultCommunityId = communityId;
+          _nearbyCommunities = neighborhoods;
+        });
+      }
+
+      return communityId;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _resolveCommunityIdForSelection(CommunityDefinition community) {
+    if (_nearbyCommunities.isEmpty) {
+      return _defaultCommunityId;
+    }
+
+    final target = community.title.toLowerCase();
+    Community? matched;
+
+    for (final item in _nearbyCommunities) {
+      final name = item.name.toLowerCase();
+      final description = item.description.toLowerCase();
+
+      if (name.contains(target) || target.contains(name)) {
+        matched = item;
+        break;
+      }
+
+      if (target == 'brooklyn' && name.contains('brooklyn')) {
+        matched = item;
+        break;
+      }
+
+      if (target == 'bird lovers' && (name.contains('bird') || description.contains('bird'))) {
+        matched = item;
+        break;
+      }
+
+      if (target == 'lost critters' && (name.contains('lost') || description.contains('lost'))) {
+        matched = item;
+        break;
+      }
+    }
+
+    return matched?.id ?? _defaultCommunityId ?? _nearbyCommunities.first.id;
+  }
+
+  Future<void> _handleCommunityTap(CommunityDefinition community) async {
+    final filteredPosts = _visibleCommunityPosts.where((post) {
+      final tags = (post['tags'] ?? '').toLowerCase();
+      final location = (post['location'] ?? '').toLowerCase();
+      final title = (post['title'] ?? '').toLowerCase();
+      final description = (post['description'] ?? '').toLowerCase();
+
+      return switch (community.title) {
+        'Lost Critters' =>
+          (post['section'] ?? '') == 'recent' ||
+              tags.contains('lostpet') ||
+              title.contains('find') ||
+              description.contains('missing'),
+        'Bird Lovers' => tags.contains('bird') || title.contains('parrot'),
+        'Brooklyn' => tags.contains('brooklyn') || location.contains('brooklyn'),
+        _ => false,
+      };
+    }).toList();
+
+    final currentUser = await _loadCurrentUserForListing();
+    final communityId = await _loadDefaultCommunityIdForListing();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Log in to join a neighborhood. Showing posts only.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else if (communityId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No neighborhood is available yet. Showing posts only.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      final selectedCommunityId = _resolveCommunityIdForSelection(community);
+
+      if (selectedCommunityId != null) {
+        try {
+          await _communityService.joinNeighborhood(
+            communityId: selectedCommunityId,
+            currentUserId: currentUser.id,
+          );
+
+          if (mounted) {
+            setState(() {
+              _defaultCommunityId = selectedCommunityId;
+            });
+          }
+
+          if (!mounted) {
+            return;
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Joined ${community.title}.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } catch (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_authService.messageForError(error)),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityPostsScreen(
+          title: community.title,
+          posts: filteredPosts,
+          onPostTap: (post) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MissingPostDetailsScreen(post: post),
+              ),
+            );
+          },
+          onAddListingTap: () {
+            _openListingScreen();
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<List<CommunityPost>> _loadPostsFor(Community? community) async {
+    final postsById = <String, CommunityPost>{};
+
+    try {
+      final posts = await _postService.getGeoFeed();
+      for (final post in posts) {
+        postsById[post.id] = post;
+      }
+    } catch (_) {
+      // Fall back to the neighborhood endpoint below when location auth is not ready.
+    }
+
+    if (community == null) {
+      return postsById.values.toList();
+    }
+
+    final communityPosts = await _postService.getCommunityPosts(
+      communityId: community.id,
+      limit: 20,
+    );
+    for (final post in communityPosts) {
+      postsById[post.id] = post;
+    }
+
+    return postsById.values.toList();
+  }
+
+  Future<void> _openListingScreen() async {
+    final currentUser = await _loadCurrentUserForListing();
+    final communityId = await _loadDefaultCommunityIdForListing();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Log in before creating a listing.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (communityId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No neighborhood is available yet. Seed or load neighborhoods before posting.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final didCreatePost = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ListingScreen(authorId: currentUser.id, communityId: communityId),
+      ),
+    );
+
+    if (didCreatePost == true) {
+      await _loadCommunityData();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.powderBlue,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: switch (_selectedNavIndex) {
-         1 => _postsLoading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _loadCommunityPosts,
-                child: CommunityScreen(
-                  posts: _communityPosts,
-                  onPostTap: (post) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MissingPostDetailsScreen(post: post),
-                      ),
-                    );
-                  },
-                  onAddListingTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ListingScreen(),
-                      ),
-                    ).then((_) => _loadCommunityPosts());
-                  },
-                  onCommunityTap: (community) {
-                    final filteredPosts = _communityPosts.where((post) {
-                      final tags = (post['tags'] ?? '').toLowerCase();
-                      final location = (post['location'] ?? '').toLowerCase();
-                      final title = (post['title'] ?? '').toLowerCase();
-                      final description = (post['description'] ?? '').toLowerCase();
-
-                      return switch (community.title) {
-                          'Lost Critters' =>
-                            tags.contains('lost') ||
-                            (post['section'] ?? '') == 'recent',
-                          'Bird Lovers' =>
-                            tags.contains('bird'),
-                          'Brooklyn' =>
-                            tags.contains('brooklyn'),
-                          _ =>
-                            tags.contains(community.title.toLowerCase()),
-                        };
-                    }).toList();
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CommunityPostsScreen(
-                          title: community.title,
-                          posts: filteredPosts,
-                          onPostTap: (post) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MissingPostDetailsScreen(post: post),
-                              ),
-                            );
-                          },
-                          onAddListingTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ListingScreen(),
-                              ),
-                            ).then((_) => _loadCommunityPosts());
-                          },
-                        ),
-                      ),
-                    );
-                  },
+          1 => CommunityScreen(
+            posts: _visibleCommunityPosts,
+            isLoading: _isLoadingCommunityPosts,
+            onRefresh: _loadCommunityData,
+            onPostTap: (post) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MissingPostDetailsScreen(post: post),
                 ),
-              ),
+              );
+            },
+            onAddListingTap: () {
+              _openListingScreen();
+            },
+            onCommunityTap: _handleCommunityTap,
+          ),
           2 => const ChatScreen(),
           3 => const ProfileScreen(),
           _ => _buildAdoptionView(context),
@@ -187,8 +535,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          buildHeader(),
-          const SizedBox(height: 14),
           buildSearch(
             onChanged: (value) {
               setState(() {
@@ -198,13 +544,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           if (!isResultsMode)
-            const Text(
-              'CATEGORIES',
+            Text(
+              'Browse by pet',
               style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w900,
-                color: AppColors.seaBlue,
-                letterSpacing: -0.5,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           if (isResultsMode)
@@ -212,14 +557,14 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 'Showing results for "${_searchQuery.trim()}"',
-                style: const TextStyle(
-                  color: Color(0xFF222222),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          if (!isResultsMode) const SizedBox(height: 10),
+          if (!isResultsMode) const SizedBox(height: 12),
           if (!isResultsMode)
             buildCategoryRow(
               selectedCategory: _selectedCategory,
@@ -229,17 +574,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
             ),
-          if (!isResultsMode) const SizedBox(height: 16),
+          if (!isResultsMode) ...[
+            const SizedBox(height: 22),
+            Text(
+              'Ideas for you',
+              style: TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Expanded(
             child: buildPetList(
-              pets: _pets,
+              pets: _visiblePets,
               selectedCategory: isResultsMode ? 'all' : _selectedCategory,
               searchQuery: _searchQuery,
               onPetTap: (pet) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => PetDetailsScreen(pet: pet)),
+                  MaterialPageRoute(builder: (_) => PetDetailsScreen(pet: pet)),
                 );
               },
             ),
