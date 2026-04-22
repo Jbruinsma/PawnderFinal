@@ -36,6 +36,7 @@ class AuthService {
     }
 
     await _apiClient.saveToken(token);
+    await getCurrentUser();
   }
 
   Future<CurrentUser> getCurrentUser() async {

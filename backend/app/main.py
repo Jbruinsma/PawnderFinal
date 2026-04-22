@@ -6,12 +6,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from fastapi.middleware.cors import CORSMiddleware
 
 from .api.v1 import auth, geo, community
 from .database import engine, get_db
 from . import models
-
-from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -24,15 +23,13 @@ async def lifespan(_: FastAPI):
         logger.warning("Database initialization skipped: %s", exc)
     yield
 
-
 app = FastAPI(title="Pawnder API - Dev", lifespan=lifespan)
 
 origins = [
-    "http://localhost:3000",    # Web browser testing
-    "http://localhost:8080",    # Flutter web (Our default port)
-    "http://10.0.2.2:8000",     # Android emulator (Android can't reach the localhost directly)
-    "http://localhost:8000",    # Local API testing (Postman, etc.)
-    "http://localhost:54134",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://10.0.2.2:8000",
+    "http://localhost:8000",
 ]
 
 app.add_middleware(
@@ -48,14 +45,12 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(community.router, prefix="/api/v1")
 app.include_router(geo.router, prefix="/api/v1")
 
-
 @app.get("/")
 def read_root():
     return {
         "message": "Pawnder API is running!",
         "user": os.getenv("POSTGRES_USER")
     }
-
 
 @app.get("/test-db")
 def test_db(db: Session = Depends(get_db)):

@@ -46,16 +46,11 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _authService.login(email: email, password: password);
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       Navigator.pushReplacementNamed(context, HomeScreen.routeName);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       _showMessage(_authService.messageForError(error));
     } finally {
       if (mounted) {
@@ -108,14 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      'Email',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildLabel(theme, 'Email'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _emailController,
@@ -125,14 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Password',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildLabel(theme, 'Password'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _passwordController,
@@ -156,8 +137,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             vertical: -4,
                           ),
                           side: BorderSide(color: theme.dividerColor),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
                         ),
                         Text(
                           'Remember me',
@@ -168,25 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const Spacer(),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ForgotPasswordScreen(),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            'Forgot Password?',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
+                        _buildForgotPasswordLink(context, theme),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -196,14 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: FilledButton(
                         onPressed: _isSubmitting ? null : _submitLogin,
                         child: _isSubmitting
-                            ? SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: theme.colorScheme.onPrimary,
-                                ),
-                              )
+                            ? _buildLoadingIndicator(theme)
                             : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -237,6 +191,49 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(ThemeData theme, String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        color: theme.colorScheme.onSurface,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator(ThemeData theme) {
+    return SizedBox(
+      width: 22,
+      height: 22,
+      child: CircularProgressIndicator(
+        strokeWidth: 2.5,
+        color: theme.colorScheme.onPrimary,
+      ),
+    );
+  }
+
+  Widget _buildForgotPasswordLink(BuildContext context, ThemeData theme) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ForgotPasswordScreen(),
+          ),
+        );
+      },
+      child: Text(
+        'Forgot Password?',
+        style: TextStyle(
+          fontSize: 11,
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
