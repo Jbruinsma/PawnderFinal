@@ -6,6 +6,7 @@ from sqlalchemy import func, select, and_, Row, desc, union_all
 from sqlalchemy.orm import Session
 from starlette import status
 
+from app.core.security import get_current_user
 from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user
 from app.database import get_db
 from app.models import Community, User, user_communities, Post, Tag
@@ -32,6 +33,7 @@ router = APIRouter(
 )
 def get_neighborhoods(
         coords: Annotated[CoordinateSchema, Query()],
+        current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ):
     """
