@@ -123,18 +123,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       final description = (post['description'] ?? '').toLowerCase();
 
                       return switch (community.title) {
-                        'Lost Critters' =>
-                          (post['section'] ?? '') == 'recent' ||
-                              tags.contains('lostpet') ||
-                              title.contains('find') ||
-                              description.contains('missing'),
-                        'Bird Lovers' =>
-                          tags.contains('bird') || title.contains('parrot'),
-                        'Brooklyn' =>
-                          tags.contains('brooklyn') ||
-                              location.contains('brooklyn'),
-                        _ => false,
-                      };
+                          'Lost Critters' =>
+                            tags.contains('lost') ||
+                            (post['section'] ?? '') == 'recent',
+                          'Bird Lovers' =>
+                            tags.contains('bird'),
+                          'Brooklyn' =>
+                            tags.contains('brooklyn'),
+                          _ =>
+                            tags.contains(community.title.toLowerCase()),
+                        };
                     }).toList();
 
                     Navigator.push(
