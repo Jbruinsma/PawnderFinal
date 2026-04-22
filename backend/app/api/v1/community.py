@@ -1,24 +1,20 @@
-from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user
-from app.schemas.post import (
-    CommunityPost, CommunityPostsResponse, PostCreationRequest,
-    ExistingTagsResponseModel, ExistingTag, BookmarkRequest
-)
-
-import uuid
-from typing import Annotated, Optional, Any, Dict, Sequence, List
+from typing import Annotated, Optional, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Depends, HTTPException
-from geoalchemy2.shape import to_shape
-from sqlalchemy import func, select, and_, Row, desc
+from sqlalchemy import func, select, and_, Row, desc, union_all
 from sqlalchemy.orm import Session
 from starlette import status
 
+from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user
 from app.database import get_db
 from app.models import Community, User, user_communities, Post, Tag
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
+from app.schemas.post import (
+    BookmarkRequest, PostBookmarkResponseModel
+)
 from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
     ExistingTag
 from app.utils.formatting_utils import format_post
@@ -187,23 +183,28 @@ def create_post(
     payload: PostCreationRequest,
     session: Session = Depends(get_db)
 ):
+    stmt = (
+        union_all(
+            select(User.id).where(User.id == payload.author_id),
+            select(Community.id).where(Community.id == payload.community_id)
+        )
+    )
 
-    author_exists = session.execute(
-        select(User.id).where(User.id == payload.author_id)
-    ).scalar()
-    if not author_exists:
-        raise HTTPException(status_code=404, detail="Author not found")
+    combined_check = session.execute(stmt).scalars().all()
 
-    community_exists = session.execute(
-        select(Community.id).where(Community.id == payload.community_id)
-    ).scalar()
-    if not community_exists:
+    if len(combined_check) < 2:
+        author_exists = any(uid == payload.author_id for uid in combined_check)
+        if not author_exists:
+            raise HTTPException(status_code=404, detail="Author not found")
         raise HTTPException(status_code=404, detail="Community not found")
-
-    new_post = db_create_post(session, payload)
 
     # LOGIC TO BUILD: image upload to cloud storage → assign new_post.image_url
     # LOGIC TO BUILD: dispatch neighborhood alert notifications
+
+    new_post: Post = db_create_post(
+        session= session,
+        payload= payload
+    )
 
     return {
         "status": "success",
@@ -311,20 +312,31 @@ def get_post(
     return format_post(post)
 
 
-@router.post("/posts/{post_id}/bookmark", summary="Bookmark a post")
+@router.post(
+    path= "/posts/{post_id}/bookmark",
+    summary="Bookmark a post",
+    response_model= PostBookmarkResponseModel
+)
 def bookmark_post(
     post_id: UUID,
     body: BookmarkRequest,
     session: Session = Depends(get_db)
 ):
-    result = bookmark_post_for_user(session, post_id, body.user_id)
+    result: Optional[bool] = bookmark_post_for_user(
+        session= session,
+        post_id= post_id,
+        user_id= body.user_id
+    )
 
     if result is None:
         raise HTTPException(status_code=404, detail="Post not found")
+
     if not result:
         raise HTTPException(status_code=409, detail="Post already bookmarked")
 
-    return {"status": "success", "message": "Post bookmarked"}
+    return PostBookmarkResponseModel(
+        message= "Post bookmarked"
+    )
 
 
 @router.get(

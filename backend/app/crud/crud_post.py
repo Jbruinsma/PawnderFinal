@@ -93,7 +93,10 @@ def bookmark_post_for_user(
         return False  # Signals 409 to caller
 
     session.execute(
-        bookmarks.insert().values(user_id=user_id, post_id=post_id)
+        bookmarks.insert().values(
+            user_id= user_id,
+            post_id= post_id
+        )
     )
     session.commit()
     return True
