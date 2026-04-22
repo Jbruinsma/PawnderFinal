@@ -1,13 +1,13 @@
 from typing import List
 
-from app.schemas.core import OutgoingBaseResponse
+from pydantic import BaseModel
 
 
-class Neighborhood(OutgoingBaseResponse):
+class Neighborhood(BaseModel):
     id: str
     name: str
     description: str
 
 
-class NeighborhoodResponseModel(OutgoingBaseResponse):
+class NeighborhoodResponseModel(BaseModel):
     neighborhoods: List[Neighborhood]

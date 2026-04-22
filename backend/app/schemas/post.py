@@ -5,16 +5,16 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.schemas.core import OutgoingBaseResponse
+from app.schemas.common import Message, Status
 
 
-class ExistingTag(OutgoingBaseResponse):
+class ExistingTag(BaseModel):
     tag_id: str
     category: str
     name: str
 
 
-class ExistingTagsResponseModel(OutgoingBaseResponse):
+class ExistingTagsResponseModel(BaseModel):
     tags: List[ExistingTag]
 
 
@@ -46,10 +46,12 @@ class PostCreationRequest(BaseModel):
     location: PostLocation
     tags: list[str]
 
+
 class BookmarkRequest(BaseModel):
     user_id: UUID
 
-class CommunityPost(OutgoingBaseResponse):
+
+class CommunityPost(BaseModel):
     post_id: str
     author_id: str
     author_username: Optional[str] = None
@@ -64,5 +66,9 @@ class CommunityPost(OutgoingBaseResponse):
     created_at: datetime
 
 
-class CommunityPostsResponse(OutgoingBaseResponse):
+class CommunityPostsResponse(BaseModel):
     posts: List[CommunityPost]
+
+
+class PostBookmarkResponseModel(Message, Status):
+    pass
