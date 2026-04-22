@@ -16,11 +16,13 @@ router = APIRouter(
 
 @router.post(
     "/register",
-    response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new user",
 )
-def register_user(user_in: UserCreate, session: Session = Depends(get_db)):
+def register_user(
+        user_in: UserCreate,
+        session: Session = Depends(get_db)
+):
     """
     DFD Action: Writes to D1: User Accounts.
     Task:
@@ -29,7 +31,11 @@ def register_user(user_in: UserCreate, session: Session = Depends(get_db)):
     - Save to PostgreSQL.
     - Return schemas.UserResponse.
     """
-    existing_user = get_user_by_email(session, user_in.email)
+    existing_user = get_user_by_email(
+        session= session,
+        email= user_in.email
+    )
+
     if existing_user is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
