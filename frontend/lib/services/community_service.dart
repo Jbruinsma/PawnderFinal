@@ -45,4 +45,16 @@ class CommunityService {
       'description': n['description']?.toString() ?? '',
     }).toList();
   }
+
+    static Future<List<Map<String, String>>> getCommunities() async {
+      final response = await ApiService.get(
+        '/community/neighborhoods',
+        params: {'latitude': 40.7128, 'longitude': -74.0060},
+      );
+      final List<dynamic> raw = response.data['neighborhoods'] ?? [];
+      return raw.map<Map<String, String>>((n) => {
+        'id': n['id']?.toString() ?? '',
+        'name': n['name']?.toString() ?? '',
+      }).toList();
+    }
 }

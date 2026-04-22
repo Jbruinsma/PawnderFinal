@@ -211,6 +211,22 @@ def create_post(
         "message": "Post created successfully"
     }
 
+@router.delete("/posts/{post_id}", summary="Delete a post")
+def delete_post(
+    post_id: UUID,
+    session: Session = Depends(get_db)
+):
+    post = session.execute(
+        select(Post).where(Post.id == post_id)
+    ).scalars().first()
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    session.delete(post)
+    session.commit()
+    return {"status": "success", "message": "Post deleted"}
+
 # OLD CODE MIGHT REUSE DON'T DELETE
 
 # @router.post("/posts", summary="Create a new community post")

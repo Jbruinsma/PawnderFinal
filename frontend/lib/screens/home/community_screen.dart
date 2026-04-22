@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/widgets/image_fallback.dart';
+import 'package:pawnder_app/services/community_service.dart';
 
-class CommunityScreen extends StatelessWidget {
+class CommunityScreen extends StatefulWidget {
   final List<Map<String, String>> posts;
   final ValueChanged<Map<String, String>> onPostTap;
   final VoidCallback onAddListingTap;
@@ -18,6 +19,85 @@ class CommunityScreen extends StatelessWidget {
   });
 
   @override
+  State<CommunityScreen> createState() => _CommunityScreenState();
+}
+
+class _CommunityScreenState extends State<CommunityScreen> {
+  String _searchQuery = '';
+  List<Map<String, String>> _neighborhoods = [];
+  bool _loadingNeighborhoods = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNeighborhoods();
+  }
+
+  Future<void> _loadNeighborhoods() async {
+    setState(() => _loadingNeighborhoods = true);
+    try {
+      final results = await CommunityService.getNeighborhoods();
+      if (mounted) setState(() => _neighborhoods = results);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loadingNeighborhoods = false);
+    }
+  }
+
+  void _showAllNeighborhoods() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) {
+        if (_loadingNeighborhoods) {
+          return const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (_neighborhoods.isEmpty) {
+          return const SizedBox(
+            height: 200,
+            child: Center(child: Text('No neighborhoods found')),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(24),
+          itemCount: _neighborhoods.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (_, i) {
+            final n = _neighborhoods[i];
+            return ListTile(
+              title: Text(
+                n['name'] ?? '',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Text(n['description'] ?? ''),
+              leading: const CircleAvatar(
+                backgroundColor: AppColors.seaBlue,
+                child: Icon(Icons.location_on, color: Colors.white, size: 18),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                widget.onCommunityTap(CommunityDefinition(
+                  label: n['name'] ?? '',
+                  title: n['name'] ?? '',
+                ));
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
@@ -26,11 +106,7 @@ class CommunityScreen extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(30),
           boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              offset: Offset(0, 10),
-            ),
+            BoxShadow(color: Color(0x14000000), blurRadius: 20, offset: Offset(0, 10)),
           ],
         ),
         child: Padding(
@@ -41,19 +117,14 @@ class CommunityScreen extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 52, height: 52,
                     padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                     child: ClipOval(
                       child: Image.asset(
                         'assets/images/animals.jpg',
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ImageFallback(),
+                        errorBuilder: (_, __, ___) => const ImageFallback(),
                       ),
                     ),
                   ),
@@ -62,10 +133,8 @@ class CommunityScreen extends StatelessWidget {
                     child: Text(
                       'EXPLORE COMMUNITIES',
                       style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                        color: AppColors.seaBlue,
+                        fontSize: 28, fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5, color: AppColors.seaBlue,
                       ),
                     ),
                   ),
@@ -79,7 +148,7 @@ class CommunityScreen extends StatelessWidget {
                     Expanded(
                       child: _CommunityTile(
                         label: _communities[i].label,
-                        onTap: () => onCommunityTap(_communities[i]),
+                        onTap: () => widget.onCommunityTap(_communities[i]),
                       ),
                     ),
                     if (i < _communities.length - 1) const SizedBox(width: 10),
@@ -87,30 +156,34 @@ class CommunityScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              const Align(
+              Align(
                 alignment: Alignment.centerRight,
-                child: Text(
-                  'Explore More\nCommunities',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF2A3440),
-                    fontWeight: FontWeight.w600,
+                child: GestureDetector(
+                  onTap: _showAllNeighborhoods,
+                  child: const Text(
+                    'Explore More\nCommunities',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.seaBlue,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 14),
               _SearchBar(
-                onTap: () {},
+                onChanged: (value) => setState(() => _searchQuery = value),
               ),
               const SizedBox(height: 14),
               Container(height: 2, color: AppColors.seaBlue),
               const SizedBox(height: 12),
               Expanded(
                 child: buildCommunityPostsFeed(
-                  posts: posts,
-                  searchQuery: '',
-                  onPostTap: onPostTap,
+                  posts: widget.posts,
+                  searchQuery: _searchQuery,
+                  onPostTap: widget.onPostTap,
                 ),
               ),
               Padding(
@@ -118,16 +191,13 @@ class CommunityScreen extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton(
-                    onPressed: onAddListingTap,
+                    onPressed: widget.onAddListingTap,
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFF1C1C1C),
                       elevation: 2,
                       shadowColor: const Color(0x22000000),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       shape: const StadiumBorder(),
                     ),
                     child: const Text(
@@ -164,19 +234,13 @@ class _CommunityTile extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x22000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
-                  ),
-                ],
+                boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 8, offset: Offset(0, 4))],
               ),
               child: ClipOval(
                 child: Image.asset(
                   'assets/images/animals.jpg',
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const ImageFallback(),
+                  errorBuilder: (_, __, ___) => const ImageFallback(),
                 ),
               ),
             ),
@@ -186,10 +250,8 @@ class _CommunityTile extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 13,
-              height: 1.1,
-              color: Color(0xFF1D232B),
-              fontWeight: FontWeight.w600,
+              fontSize: 13, height: 1.1,
+              color: Color(0xFF1D232B), fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -202,65 +264,49 @@ class CommunityDefinition {
   final String label;
   final String title;
 
-  const CommunityDefinition({
-    required this.label,
-    required this.title,
-  });
+  const CommunityDefinition({required this.label, required this.title});
 }
 
 const List<CommunityDefinition> _communities = [
-  CommunityDefinition(
-    label: 'Lost\nCritters',
-    title: 'Lost Critters',
-  ),
-  CommunityDefinition(
-    label: 'Bird\nLovers',
-    title: 'Bird Lovers',
-  ),
-  CommunityDefinition(
-    label: 'Brooklyn',
-    title: 'Brooklyn',
-  ),
+  CommunityDefinition(label: 'Lost\nCritters', title: 'Lost Critters'),
+  CommunityDefinition(label: 'Bird\nLovers', title: 'Bird Lovers'),
+  CommunityDefinition(label: 'Brooklyn', title: 'Brooklyn'),
 ];
 
 class _SearchBar extends StatelessWidget {
-  final VoidCallback onTap;
+  final ValueChanged<String> onChanged;
 
-  const _SearchBar({required this.onTap});
+  const _SearchBar({required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 42,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Search for communities...',
-                style: TextStyle(
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              onChanged: onChanged,
+              decoration: const InputDecoration(
+                hintText: 'Search for communities...',
+                hintStyle: TextStyle(
                   color: Color(0xFFB1B8C0),
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
-            Container(
-              width: 22,
-              height: 22,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
-        ),
+          ),
+          const Icon(Icons.search, color: AppColors.seaBlue, size: 20),
+        ],
       ),
     );
   }

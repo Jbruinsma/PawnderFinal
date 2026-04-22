@@ -24,3 +24,4 @@ class Community(Base):
     geofence_boundary = mapped_column(Geometry(geometry_type='POLYGON', srid=4326))
 
     members = relationship("User", secondary=user_communities, back_populates="joined_communities")
+

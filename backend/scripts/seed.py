@@ -124,108 +124,129 @@ def seed() -> None:
             latitude=40.7119,
         )
 
-        # Add more tags here seamlessly :) - mo was here haha
         dog_tag = get_or_create_tag(db, category="Species", name="Dog")
         cat_tag = get_or_create_tag(db, category="Species", name="Cat")
         lost_tag = get_or_create_tag(db, category="Status", name="Lost")
         found_tag = get_or_create_tag(db, category="Status", name="Found")
+        bird_tag = get_or_create_tag(db, category="Species", name="Bird")
+        rodent_tag = get_or_create_tag(db, category="Species", name="Rodent")
+        lostpet_tag = get_or_create_tag(db, category="Status", name="LostPet")
+        foundpet_tag = get_or_create_tag(db, category="Status", name="FoundPet")
+        brooklyn_tag = get_or_create_tag(db, category="Location", name="Brooklyn")
+        queens_tag = get_or_create_tag(db, category="Location", name="Queens")
 
-        get_or_create_tag(db, category="Species", name="Bird")
-        get_or_create_tag(db, category="Species", name="Rodent")
-        get_or_create_tag(db, category="Status", name="LostPet")
-        get_or_create_tag(db, category="Status", name="FoundPet")
-        get_or_create_tag(db, category="Location", name="Brooklyn")
-        get_or_create_tag(db, category="Location", name="Queens")
-
-        # Community must be created before posts
+        # ── Communities ──────────────────────────────────────────
         tribeca_watch = get_or_create_community(
             db,
             name="Tribeca Watch",
-            description="Test neighborhood covering the seeded downtown posts.",
+            description="Downtown Tribeca neighborhood pet alerts.",
             boundary=[
-                (-74.0080, 40.7115),
-                (-74.0038, 40.7115),
-                (-74.0038, 40.7148),
-                (-74.0080, 40.7148),
+                (-74.0080, 40.7115), (-74.0038, 40.7115),
+                (-74.0038, 40.7148), (-74.0080, 40.7148),
                 (-74.0080, 40.7115),
             ],
         )
 
-        get_or_create_post(
+        queens_watch = get_or_create_community(
             db,
-            author=reporter,
-            community=tribeca_watch,
-            title="Golden retriever seen near Tribeca park",
-            description="Friendly dog spotted near the benches around lunch time.",
-            post_type="Sighting",
-            longitude=-74.0057,
-            latitude=40.7132,
-            status="Active",
-            tags=[dog_tag, found_tag],
-        )
-        get_or_create_post(
-            db,
-            author=shelter,
-            community=tribeca_watch,
-            title="Missing tabby cat with blue collar",
-            description="Last seen near the corner deli two blocks east.",
-            post_type="Lost Pet",
-            longitude=-74.0049,
-            latitude=40.7123,
-            status="Active",
-            tags=[cat_tag, lost_tag],
-        )
-        get_or_create_post(
-            db,
-            author=reporter,
-            community=tribeca_watch,
-            title="Small brown dog by Hudson walkway",
-            description="Nervous dog running north along the waterfront path.",
-            post_type="Sighting",
-            longitude=-74.0074,
-            latitude=40.7141,
-            status="Active",
-            tags=[dog_tag],
+            name="Queens Watch",
+            description="Pet alerts across Queens neighborhoods.",
+            boundary=[
+                (-73.9500, 40.7282), (-73.7900, 40.7282),
+                (-73.7900, 40.7682), (-73.9500, 40.7682),
+                (-73.9500, 40.7282),
+            ],
         )
 
-        # Intentionally out-of-range post — no community needed for geo test
-        get_or_create_post(
+        manhattan_hub = get_or_create_community(
             db,
-            author=shelter,
-            community=tribeca_watch,
-            title="Old flyer from uptown",
-            description="This post should stay out of the feed because it is too far away.",
-            post_type="Lost Pet",
-            longitude=-73.9680,
-            latitude=40.7851,
-            status="Active",
-            tags=[dog_tag, lost_tag],
+            name="Manhattan Hub",
+            description="Central Manhattan pet community.",
+            boundary=[
+                (-74.0200, 40.7000), (-73.9700, 40.7000),
+                (-73.9700, 40.7900), (-74.0200, 40.7900),
+                (-74.0200, 40.7000),
+            ],
+        )
+
+        # ── Tribeca Watch Posts ───────────────────────────────────
+        get_or_create_post(
+            db, author=reporter, community=tribeca_watch,
+            title="Golden retriever seen near Tribeca park",
+            description="Friendly dog spotted near the benches around lunch time.",
+            post_type="Sighting", longitude=-74.0057, latitude=40.7132,
+            status="Active", tags=[dog_tag, found_tag],
         )
         get_or_create_post(
-            db,
-            author=explorer,
-            community=tribeca_watch,
-            title="My own cat note",
-            description="This post should not appear in my feed because it belongs to the current user.",
-            post_type="Lost Pet",
-            longitude=-74.0058,
-            latitude=40.7127,
-            status="Active",
-            tags=[cat_tag],
+            db, author=shelter, community=tribeca_watch,
+            title="Missing tabby cat with blue collar",
+            description="Last seen near the corner deli two blocks east.",
+            post_type="Lost Pet", longitude=-74.0049, latitude=40.7123,
+            status="Active", tags=[cat_tag, lost_tag, lostpet_tag],
+        )
+        get_or_create_post(
+            db, author=reporter, community=tribeca_watch,
+            title="Small brown dog by Hudson walkway",
+            description="Nervous dog running north along the waterfront path.",
+            post_type="Sighting", longitude=-74.0074, latitude=40.7141,
+            status="Active", tags=[dog_tag],
+        )
+
+        # ── Queens Watch Posts ────────────────────────────────────
+        get_or_create_post(
+            db, author=reporter, community=queens_watch,
+            title="Help me find my Parrot",
+            description="My parrot has been missing for 2 hours, last seen in our backyard in Elmhurst. He responds to his name Sony.",
+            post_type="Lost Pet", longitude=-73.8830, latitude=40.7370,
+            status="Active", tags=[bird_tag, lostpet_tag, queens_tag],
+        )
+        get_or_create_post(
+            db, author=explorer, community=queens_watch,
+            title="Found this lil cockatiel",
+            description="Found a cockatiel perched on my window this afternoon. Very tame, responds to whistles.",
+            post_type="Sighting", longitude=-73.8650, latitude=40.7480,
+            status="Active", tags=[bird_tag, foundpet_tag, queens_tag],
+        )
+        get_or_create_post(
+            db, author=shelter, community=queens_watch,
+            title="Lost terrier mix near Flushing",
+            description="Small white terrier mix, very friendly. Last seen near Main St Flushing.",
+            post_type="Lost Pet", longitude=-73.8300, latitude=40.7580,
+            status="Active", tags=[dog_tag, lostpet_tag, queens_tag],
+        )
+
+        # ── Manhattan Hub Posts ───────────────────────────────────
+        get_or_create_post(
+            db, author=shelter, community=manhattan_hub,
+            title="Who's hedgehog is this",
+            description="Found a friendly hedgehog near 96th street around noon. Looks domesticated and well cared for.",
+            post_type="Sighting", longitude=-73.9680, latitude=40.7851,
+            status="Active", tags=[foundpet_tag],
+        )
+        get_or_create_post(
+            db, author=reporter, community=manhattan_hub,
+            title="Let's bring Georgie home",
+            description="Georgie slipped out of our apartment this morning. White and brown cat near downtown Manhattan.",
+            post_type="Lost Pet", longitude=-73.9850, latitude=40.7580,
+            status="Active", tags=[cat_tag, lostpet_tag],
+        )
+        get_or_create_post(
+            db, author=explorer, community=manhattan_hub,
+            title="Stray cat near Central Park",
+            description="Friendly orange tabby hanging around the south entrance of Central Park.",
+            post_type="Sighting", longitude=-73.9734, latitude=40.7644,
+            status="Active", tags=[cat_tag, foundpet_tag],
         )
 
         db.commit()
 
         print("Seed complete.")
-        print("Login user: geo.explorer@example.com")
-        print(f"Password: {TEST_PASSWORD}")
-        print(f"Tribeca Watch community_id: {tribeca_watch.id}")
-        print("\nPaste this into home_screen.dart _loadCommunityPosts():")
-        print(f"  CommunityService.getPosts('{tribeca_watch.id}')")
+        print(f"Tribeca Watch id: {tribeca_watch.id}")
+        print(f"Queens Watch id:  {queens_watch.id}")
+        print(f"Manhattan Hub id: {manhattan_hub.id}")
 
     finally:
         db.close()
-
 
 if __name__ == "__main__":
     seed()

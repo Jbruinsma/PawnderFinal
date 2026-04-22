@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/services/api_service.dart';
+import 'package:pawnder_app/services/community_service.dart';
 
 class ListingScreen extends StatefulWidget {
   const ListingScreen({super.key});
@@ -25,6 +25,10 @@ class _ListingScreenState extends State<ListingScreen> {
     'Rodent', 'FoundPet', 'Bird', 'LostPet', 'Cat', 'Brooklyn', 'Dog', 'Queens',
   ];
 
+ List<Map<String, String>> _communities = [];
+ String? _selectedCommunityId;
+ String? _selectedCommunityName;
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -41,6 +45,27 @@ class _ListingScreenState extends State<ListingScreen> {
       }
     });
   }
+
+    @override
+    void initState() {
+      super.initState();
+      _loadCommunities();
+    }
+
+    Future<void> _loadCommunities() async {
+      try {
+        final results = await CommunityService.getCommunities();
+        if (mounted) {
+          setState(() {
+            _communities = results;
+            if (results.isNotEmpty) {
+              _selectedCommunityId = results[0]['id'];
+              _selectedCommunityName = results[0]['name'];
+            }
+          });
+        }
+      } catch (_) {}
+    }
 
   Future<void> _submitListing() async {
     FocusScope.of(context).unfocus();
@@ -66,7 +91,7 @@ class _ListingScreenState extends State<ListingScreen> {
 
       await ApiService.post('/community/posts', {
         'author_id': authorId,
-        'community_id': 'cffd8c3f-40ee-47b7-84fc-b8bbe343887f',
+        'community_id': _selectedCommunityId ?? '',
         'post_type': _selectedTags.contains('LostPet') ? 'Lost Pet' : 'Sighting',
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -156,6 +181,35 @@ class _ListingScreenState extends State<ListingScreen> {
                   style: const TextStyle(fontSize: 17, height: 1.35, fontWeight: FontWeight.w600, color: Color(0xFF26313B)),
                 ),
               ),
+              const SizedBox(height: 18),
+                if (_communities.isNotEmpty)
+                  _InputCard(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedCommunityId,
+                        isExpanded: true,
+                        hint: const Text('Select a community'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF26313B),
+                        ),
+                        items: _communities.map((c) {
+                          return DropdownMenuItem<String>(
+                            value: c['id'],
+                            child: Text(c['name'] ?? ''),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedCommunityId = value;
+                            _selectedCommunityName = _communities
+                                .firstWhere((c) => c['id'] == value)['name'];
+                          });
+                        },
+                      ),
+                    ),
+                  ),
               const SizedBox(height: 26),
               const Center(
                 child: Text(
