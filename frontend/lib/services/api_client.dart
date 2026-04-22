@@ -16,6 +16,12 @@ class ApiClient {
 
           handler.next(options);
         },
+        onError: (DioException e, handler) async {
+          if (e.response?.statusCode == 401) {
+            await clearToken();
+          }
+          handler.next(e);
+        },
       ),
     );
   }

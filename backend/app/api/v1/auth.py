@@ -36,10 +36,22 @@ def register_user(user_in: UserCreate, session: Session = Depends(get_db)):
             detail="A user with this email already exists.",
         )
 
-    return create_user(
+    user: User = create_user(
         session= session,
         user_in= user_in
     )
+
+    access_token = create_access_token(data={"sub": str(user.id)})
+    token_response = {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
+
+    return {
+        "token": token_response,
+        "email": user.email,
+        "role": user.role
+    }
 
 
 @router.post("/login", response_model=Token, summary="Authenticate and receive token")

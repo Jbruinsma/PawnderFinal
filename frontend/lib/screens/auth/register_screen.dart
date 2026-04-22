@@ -58,17 +58,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: password,
       );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      _showMessage('Account created. You can log in now.');
+      _showMessage('Account created successfully!');
       Navigator.pushReplacementNamed(context, LoginScreen.routeName);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       _showMessage(_authService.messageForError(error));
     } finally {
       if (mounted) {
@@ -106,14 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           'Join your neighborhood pet network and start posting alerts.',
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      'Full Name',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildLabel(theme, 'Full Name'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _fullNameController,
@@ -121,14 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Email',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildLabel(theme, 'Email'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _emailController,
@@ -138,14 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Password',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildLabel(theme, 'Password'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _passwordController,
@@ -155,14 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Confirm Password',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildLabel(theme, 'Confirm Password'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _confirmPasswordController,
@@ -178,14 +145,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: FilledButton(
                         onPressed: _isSubmitting ? null : _submitRegister,
                         child: _isSubmitting
-                            ? SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: theme.colorScheme.onPrimary,
-                                ),
-                              )
+                            ? _buildLoadingIndicator(theme)
                             : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -220,6 +180,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(ThemeData theme, String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        color: theme.colorScheme.onSurface,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator(ThemeData theme) {
+    return SizedBox(
+      width: 22,
+      height: 22,
+      child: CircularProgressIndicator(
+        strokeWidth: 2.5,
+        color: theme.colorScheme.onPrimary,
       ),
     );
   }
