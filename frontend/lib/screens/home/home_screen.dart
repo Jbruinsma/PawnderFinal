@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCommunityPosts() async {
     try {
       final posts = await CommunityService.getPosts(
-        '00000000-0000-0000-0000-000000000001',
+        'cffd8c3f-40ee-47b7-84fc-b8bbe343887f',
       );
       if (mounted) {
         setState(() {
@@ -93,9 +93,11 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.powderBlue,
       body: SafeArea(
         child: switch (_selectedNavIndex) {
-          1 => _postsLoading
-              ? const Center(child: CircularProgressIndicator())
-              : CommunityScreen(
+         1 => _postsLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _loadCommunityPosts,
+                child: CommunityScreen(
                   posts: _communityPosts,
                   onPostTap: (post) {
                     Navigator.push(
@@ -111,15 +113,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       MaterialPageRoute(
                         builder: (_) => const ListingScreen(),
                       ),
-                    );
+                    ).then((_) => _loadCommunityPosts());
                   },
                   onCommunityTap: (community) {
                     final filteredPosts = _communityPosts.where((post) {
                       final tags = (post['tags'] ?? '').toLowerCase();
                       final location = (post['location'] ?? '').toLowerCase();
                       final title = (post['title'] ?? '').toLowerCase();
-                      final description =
-                          (post['description'] ?? '').toLowerCase();
+                      final description = (post['description'] ?? '').toLowerCase();
 
                       return switch (community.title) {
                         'Lost Critters' =>
@@ -146,8 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    MissingPostDetailsScreen(post: post),
+                                builder: (_) => MissingPostDetailsScreen(post: post),
                               ),
                             );
                           },
@@ -157,13 +157,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               MaterialPageRoute(
                                 builder: (_) => const ListingScreen(),
                               ),
-                            );
+                            ).then((_) => _loadCommunityPosts());
                           },
                         ),
                       ),
                     );
                   },
                 ),
+              ),
           2 => const ChatScreen(),
           3 => const ProfileScreen(),
           _ => _buildAdoptionView(context),

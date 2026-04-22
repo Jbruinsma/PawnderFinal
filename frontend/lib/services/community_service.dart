@@ -1,8 +1,6 @@
 import 'api_service.dart';
 
 class CommunityService {
-  /// Fetches posts for a given community_id.
-  /// Returns a list of post maps matching the shape home_screen expects.
   static Future<List<Map<String, String>>> getPosts(String communityId) async {
     final response = await ApiService.get(
       '/community/posts',
@@ -16,23 +14,21 @@ class CommunityService {
       final tags = (post['tags'] as List<dynamic>?)?.join('|') ?? '';
 
       return {
-        'id': post['post_id']?.toString() ?? '',
-        'section': (post['post_type'] ?? '').toLowerCase().contains('lost')
+        'id': post['postId']?.toString() ?? '',
+        'section': (post['postType'] ?? '').toLowerCase().contains('lost')
             ? 'recent'
             : 'found',
         'title': post['title']?.toString() ?? '',
-        'author': post['author_username']?.toString() ?? 'Unknown',
-        'location':
-            '${location['latitude'] ?? ''}, ${location['longitude'] ?? ''}',
-        'posted': post['created_at']?.toString() ?? '',
+        'author': post['authorUsername']?.toString() ?? 'Unknown',
+        'location': '${location['latitude'] ?? ''}, ${location['longitude'] ?? ''}',
+        'posted': post['createdAt']?.toString() ?? '',
         'tags': tags,
-        'image': 'assets/images/animals.jpg', // placeholder until image_url is wired
+        'image': 'assets/images/animals.jpg',
         'description': post['description']?.toString() ?? '',
       };
     }).toList();
   }
 
-  /// Fetches all neighborhoods sorted by proximity.
   static Future<List<Map<String, String>>> getNeighborhoods({
     double latitude = 40.7128,
     double longitude = -74.0060,

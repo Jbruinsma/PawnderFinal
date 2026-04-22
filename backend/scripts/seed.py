@@ -52,6 +52,7 @@ def get_or_create_post(
     db,
     *,
     author: User,
+    community: Community,
     title: str,
     description: str,
     post_type: str,
@@ -64,6 +65,7 @@ def get_or_create_post(
     if post is None:
         post = Post(
             author_id=author.id,
+            community_id=community.id,
             title=title,
             description=description,
             post_type=post_type,
@@ -76,6 +78,7 @@ def get_or_create_post(
     post.description = description
     post.post_type = post_type
     post.status = status
+    post.community_id = community.id
     post.location = point(longitude, latitude)
     post.tags = tags
     return post
@@ -126,6 +129,7 @@ def seed() -> None:
         lost_tag = get_or_create_tag(db, category="Status", name="Lost")
         found_tag = get_or_create_tag(db, category="Status", name="Found")
 
+        # Community must be created before posts
         tribeca_watch = get_or_create_community(
             db,
             name="Tribeca Watch",
@@ -142,6 +146,7 @@ def seed() -> None:
         get_or_create_post(
             db,
             author=reporter,
+            community=tribeca_watch,
             title="Golden retriever seen near Tribeca park",
             description="Friendly dog spotted near the benches around lunch time.",
             post_type="Sighting",
@@ -153,6 +158,7 @@ def seed() -> None:
         get_or_create_post(
             db,
             author=shelter,
+            community=tribeca_watch,
             title="Missing tabby cat with blue collar",
             description="Last seen near the corner deli two blocks east.",
             post_type="Lost Pet",
@@ -164,6 +170,7 @@ def seed() -> None:
         get_or_create_post(
             db,
             author=reporter,
+            community=tribeca_watch,
             title="Small brown dog by Hudson walkway",
             description="Nervous dog running north along the waterfront path.",
             post_type="Sighting",
@@ -172,9 +179,12 @@ def seed() -> None:
             status="Active",
             tags=[dog_tag],
         )
+
+        # Intentionally out-of-range post — no community needed for geo test
         get_or_create_post(
             db,
             author=shelter,
+            community=tribeca_watch,
             title="Old flyer from uptown",
             description="This post should stay out of the feed because it is too far away.",
             post_type="Lost Pet",
@@ -186,6 +196,7 @@ def seed() -> None:
         get_or_create_post(
             db,
             author=explorer,
+            community=tribeca_watch,
             title="My own cat note",
             description="This post should not appear in my feed because it belongs to the current user.",
             post_type="Lost Pet",
@@ -200,12 +211,10 @@ def seed() -> None:
         print("Seed complete.")
         print("Login user: geo.explorer@example.com")
         print(f"Password: {TEST_PASSWORD}")
-        print(f"Neighborhood community id: {tribeca_watch.id}")
-        print("Expected feed behavior:")
-        print("- /api/v1/geo/feed returns nearby posts from other users")
-        print("- tags=Dog returns the two nearby dog posts")
-        print("- tags=Cat returns the nearby cat post")
-        print("- /api/v1/geo/neighborhood/{community_id}/feed returns the downtown posts inside Tribeca Watch")
+        print(f"Tribeca Watch community_id: {tribeca_watch.id}")
+        print("\nPaste this into home_screen.dart _loadCommunityPosts():")
+        print(f"  CommunityService.getPosts('{tribeca_watch.id}')")
+
     finally:
         db.close()
 
