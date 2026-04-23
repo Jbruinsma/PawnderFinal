@@ -21,7 +21,7 @@ class Post(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str] = mapped_column(String, nullable=True)
 
-    location = mapped_column(Geometry(geometry_type="POINT", srid=4326, geography=True), nullable=False)
+    location = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
 
     status: Mapped[str] = mapped_column(String, default="Active")
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())

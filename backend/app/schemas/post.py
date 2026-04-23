@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, List, Dict
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import Message, Status
 
@@ -52,18 +52,28 @@ class BookmarkRequest(BaseModel):
 
 
 class CommunityPost(BaseModel):
-    post_id: str
-    author_id: str
-    author_username: Optional[str] = None
-    community_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    post_id: UUID
+    author_id: UUID
+    author_username: str
+    community_id: UUID
     post_type: str
     title: str
     description: str
-    image_url: Optional[str]
-    location: Dict
-    tags: list[str]
+    image_url: Optional[str] = None
+    location: PostLocation
+    tags: List[str] = []
     status: str
     created_at: datetime
+    like_count: int = 0
+    comment_count: int = 0
+    you_liked: bool = False
+
+
+class CommunityPostCommentRequest(BaseModel):
+    replying_to_id: Optional[UUID] = None
+    content: str
 
 
 class CommunityPostsResponse(BaseModel):
@@ -72,3 +82,21 @@ class CommunityPostsResponse(BaseModel):
 
 class PostBookmarkResponseModel(Message, Status):
     pass
+
+
+class PostLikeResponseModel(Message):
+    post_id: UUID
+    new_like_count: int = 0
+
+
+class PostUnlikeResponseModel(PostLikeResponseModel):
+    pass
+
+
+class PostComment(BaseModel):
+    post_id: UUID
+    user_id: UUID
+    replying_to_id: Optional[UUID] = None
+    content: str
+    created_at: str
+    you_liked: bool = False

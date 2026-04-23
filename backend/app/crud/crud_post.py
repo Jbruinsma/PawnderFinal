@@ -1,10 +1,10 @@
 # Reusable DB functions for Post (Create, Read, Update, Delete)
 
 from uuid import UUID
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, and_, exists, func
 from sqlalchemy.orm import Session
 
-from app.models import Post, Tag, User, Community
+from app.models import Post, Tag, User, Community, PostLikes, PostComments
 from app.models.user import bookmarks
 from app.schemas.post import PostCreationRequest
 
@@ -100,3 +100,77 @@ def bookmark_post_for_user(
     )
     session.commit()
     return True
+
+def retrieve_posts(
+        limit: int,
+        offset: int,
+        community_id: UUID,
+        session: Session
+):
+    stmt = (
+        select(Post)
+        .join(Post.author)
+        .where(Post.community_id == community_id)
+        .order_by(desc(Post.created_at))
+        .offset(offset)
+        .limit(limit)
+    )
+
+    return session.execute(stmt).scalars().all()
+
+
+def retrieve_posts_with_stats(
+        session: Session,
+        community_id: UUID,
+        current_user_id: UUID,
+        limit: int,
+        offset: int
+):
+    like_count_sq = (
+        select(func.count())
+        .where(PostLikes.post_id == Post.id)
+        .scalar_subquery()
+    )
+
+    comment_count_sq = (
+        select(func.count())
+        .where(PostComments.post_id == Post.id)
+        .scalar_subquery()
+    )
+
+    you_liked_sq = (
+        select(
+            exists().where(
+                and_(
+                    PostLikes.post_id == Post.id,
+                    PostLikes.user_id == current_user_id
+                )
+            )
+        ).scalar_subquery()
+    )
+
+    stmt = (
+        select(
+            Post,
+            like_count_sq.label("like_count"),
+            comment_count_sq.label("comment_count"),
+            you_liked_sq.label("you_liked")
+        )
+        .join(Post.author)
+        .where(Post.community_id == community_id)
+        .order_by(desc(Post.created_at))
+        .offset(offset)
+        .limit(limit)
+    )
+
+    return session.execute(stmt).all()
+
+def retrieve_post_likes(
+    post_id: UUID,
+    session: Session
+):
+    stmt = (
+        select(func.count(PostLikes.post_id))
+        .where(PostLikes.post_id == post_id)
+    )
+    return session.execute(stmt).scalar() or 0
