@@ -18,6 +18,7 @@ from app.schemas.post import (
 )
 from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
     ExistingTag
+from app.schemas.user import Token
 from app.utils.formatting_utils import format_post
 
 router = APIRouter(

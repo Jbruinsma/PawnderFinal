@@ -61,8 +61,8 @@ def register_user(
 
 @router.post(
     path= "/login",
-    response_model= Token,
-    summary= "Authenticate and receive token"
+    summary= "Authenticate and receive token",
+    response_model= Token
 )
 def login_for_access_token(
         user_in: UserLogin,
