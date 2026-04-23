@@ -25,18 +25,11 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Pawnder API - Dev", lifespan=lifespan)
 
-origins = [
-    "http://localhost:3000",
-    "http://localhost:8080",
-    "http://10.0.2.2:8000",
-    "http://localhost:8000",
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
     allow_origin_regex=r"http://localhost:.*",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
