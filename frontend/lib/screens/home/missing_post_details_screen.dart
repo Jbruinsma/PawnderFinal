@@ -1,19 +1,103 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/message_thread.dart';
 import 'package:pawnder_app/screens/home/message_thread_screen.dart';
+import 'package:pawnder_app/services/auth_service.dart';
+import 'package:pawnder_app/services/post_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/pet_image.dart';
 
-class MissingPostDetailsScreen extends StatelessWidget {
+class MissingPostDetailsScreen extends StatefulWidget {
   final Map<String, String> post;
 
   const MissingPostDetailsScreen({super.key, required this.post});
 
   @override
+  State<MissingPostDetailsScreen> createState() =>
+      _MissingPostDetailsScreenState();
+}
+
+class _MissingPostDetailsScreenState extends State<MissingPostDetailsScreen> {
+  final _authService = AuthService();
+  final _postService = PostService();
+  bool _isBookmarked = false;
+  bool _isBookmarking = false;
+  bool _isCheckingBookmark = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfBookmarked();
+  }
+
+  Future<void> _checkIfBookmarked() async {
+    try {
+      final user = await _authService.getCurrentUser();
+      final bookmarked = await _postService.isPostBookmarked(
+        postId: widget.post['id'] ?? '',
+        userId: user.id,
+      );
+      if (mounted) setState(() => _isBookmarked = bookmarked);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isCheckingBookmark = false);
+    }
+  }
+
+  Future<void> _toggleBookmark() async {
+    if (_isBookmarking) return;
+    setState(() => _isBookmarking = true);
+    try {
+      final user = await _authService.getCurrentUser();
+      if (_isBookmarked) {
+        await _postService.removeBookmark(
+          postId: widget.post['id'] ?? '',
+          userId: user.id,
+        );
+        if (mounted) {
+          setState(() => _isBookmarked = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bookmark removed'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        await _postService.bookmarkPost(
+          postId: widget.post['id'] ?? '',
+          userId: user.id,
+        );
+        if (mounted) {
+          setState(() => _isBookmarked = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Post bookmarked'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not update bookmark'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBookmarking = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final post = widget.post;
     final theme = Theme.of(context);
     final author = post['author'] ?? 'Pet Owner';
-    final firstName = author.trim().isEmpty ? 'Owner' : author.split(' ').first;
+    final firstName =
+        author.trim().isEmpty ? 'Owner' : author.split(' ').first;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -53,7 +137,39 @@ class MissingPostDetailsScreen extends StatelessWidget {
                     onTap: () => Navigator.pop(context),
                   ),
                   const Spacer(),
-                  _GlassIcon(icon: Icons.bookmark_border_rounded, onTap: () {}),
+                  if (_isCheckingBookmark)
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.76),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(11),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else if (_isBookmarking)
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.76),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(11),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else
+                    _GlassIcon(
+                      icon: _isBookmarked
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      onTap: _toggleBookmark,
+                    ),
                 ],
               ),
             ),
