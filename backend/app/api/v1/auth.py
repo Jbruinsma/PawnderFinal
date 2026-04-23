@@ -5,7 +5,8 @@ from app.core.security import verify_password, create_access_token, get_current_
 from app.models.user import User
 from app.crud.crud_user import create_user, get_user_by_email
 from app.database import get_db
-from app.schemas.user import UserCreate, UserResponse, UserLogin, Token, UserLocationUpdate, UserLocationResponse
+from app.schemas.user import UserCreate, UserResponse, UserLogin, Token, UserLocationUpdate, UserLocationResponse, \
+    UserRegistrationResponseModel
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
 
@@ -15,9 +16,10 @@ router = APIRouter(
 )
 
 @router.post(
-    "/register",
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new user",
+    path= "/register",
+    status_code= status.HTTP_201_CREATED,
+    summary= "Create a new user",
+    response_model= UserRegistrationResponseModel
 )
 def register_user(
         user_in: UserCreate,
@@ -48,20 +50,24 @@ def register_user(
     )
 
     access_token = create_access_token(data={"sub": str(user.id)})
-    token_response = {
-        "access_token": access_token,
-        "token_type": "bearer",
-    }
+    token_response = Token(access_token= access_token)
 
-    return {
-        "token": token_response,
-        "email": user.email,
-        "role": user.role
-    }
+    return UserRegistrationResponseModel(
+        token= token_response,
+        email= user.email,
+        role= user.role
+    )
 
 
-@router.post("/login", response_model=Token, summary="Authenticate and receive token")
-def login_for_access_token(user_in: UserLogin, session: Session = Depends(get_db)):
+@router.post(
+    path= "/login",
+    response_model= Token,
+    summary= "Authenticate and receive token"
+)
+def login_for_access_token(
+        user_in: UserLogin,
+        session: Session = Depends(get_db)
+):
     """
     DFD Action: Processes "Credentials & Auth Request".
     Task:
@@ -80,10 +86,9 @@ def login_for_access_token(user_in: UserLogin, session: Session = Depends(get_db
         )
 
     access_token = create_access_token(data={"sub": str(user.id)})
-    return {
-        "access_token" : access_token,
-        "token_type" : "bearer",
-    }
+    return Token(
+        access_token= access_token
+    )
 
 
 @router.get("/me", response_model=UserResponse, summary="Get current user profile")
