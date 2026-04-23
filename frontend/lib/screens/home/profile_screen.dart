@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pawnder_app/models/current_user.dart';
+import 'package:pawnder_app/screens/auth/login_screen.dart';
+import 'package:pawnder_app/screens/home/user_posts_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
+import 'package:pawnder_app/services/post_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
 
@@ -16,6 +19,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _authService = AuthService();
+  final _postService = PostService();
   final ImagePicker _profileImagePicker = ImagePicker();
   CurrentUser? _currentUser;
   XFile? _selectedProfilePhoto;
@@ -33,31 +37,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final user = await _authService.getCurrentUser();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _currentUser = user;
-      });
+      if (!mounted) return;
+      setState(() => _currentUser = user);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _errorMessage = _authService.messageForError(error);
-      });
+      if (!mounted) return;
+      setState(() => _errorMessage = _authService.messageForError(error));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -67,19 +55,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         source: ImageSource.gallery,
         imageQuality: 88,
       );
-
-      if (!mounted || image == null) {
-        return;
-      }
-
-      setState(() {
-        _selectedProfilePhoto = image;
-      });
+      if (!mounted || image == null) return;
+      setState(() => _selectedProfilePhoto = image);
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not open your photo library right now.'),
@@ -90,9 +69,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _removeProfilePhoto() {
-    setState(() {
-      _selectedProfilePhoto = null;
-    });
+    setState(() => _selectedProfilePhoto = null);
+  }
+
+  Future<void> _logout() async {
+    await _authService.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      LoginScreen.routeName,
+      (route) => false,
+    );
   }
 
   @override
@@ -200,11 +186,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          const _MenuTile(label: 'MY LISTINGS'),
+          _MenuTile(
+            label: 'MY LISTINGS',
+            icon: Icons.list_alt_rounded,
+            onTap: user == null
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserPostsScreen(
+                          title: 'My Listings',
+                          subtitle: 'Posts you\'ve created',
+                          icon: Icons.list_alt_rounded,
+                          loadPosts: () =>
+                              _postService.getUserPosts(userId: user.id),
+                        ),
+                      ),
+                    );
+                  },
+          ),
           const SizedBox(height: 10),
-          const _MenuTile(label: 'BOOKMARKS'),
+          _MenuTile(
+            label: 'BOOKMARKS',
+            icon: Icons.bookmark_outline_rounded,
+            onTap: user == null
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserPostsScreen(
+                          title: 'Bookmarks',
+                          subtitle: 'Posts you\'ve saved',
+                          icon: Icons.bookmark_outline_rounded,
+                          loadPosts: () =>
+                              _postService.getUserBookmarks(userId: user.id),
+                        ),
+                      ),
+                    );
+                  },
+          ),
           const SizedBox(height: 10),
           _MenuTile(label: user?.email ?? 'CONTACT\nINFORMATION'),
+          const SizedBox(height: 24),
+          _MenuTile(
+            label: 'LOG OUT',
+            icon: Icons.logout_rounded,
+            onTap: _logout,
+          ),
         ],
       ),
     );
@@ -316,28 +346,47 @@ class _ProfilePhotoButton extends StatelessWidget {
 
 class _MenuTile extends StatelessWidget {
   final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
 
-  const _MenuTile({required this.label});
+  const _MenuTile({required this.label, this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          label,
-          maxLines: 1,
-          softWrap: false,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: theme.colorScheme.onSurface,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.dividerColor),
+        ),
+        child: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: theme.colorScheme.onSurface, size: 22),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
         ),
       ),
     );
@@ -352,7 +401,6 @@ class _ThemeToggleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
