@@ -315,108 +315,105 @@ class _HomeScreenState extends State<HomeScreen> {
     return matched?.id ?? _defaultCommunityId ?? _nearbyCommunities.first.id;
   }
 
-  Future<void> _handleCommunityTap(CommunityDefinition community) async {
-    final filteredPosts = _visibleCommunityPosts.where((post) {
-      final tags = (post['tags'] ?? '').toLowerCase();
-      final location = (post['location'] ?? '').toLowerCase();
-      final title = (post['title'] ?? '').toLowerCase();
-      final description = (post['description'] ?? '').toLowerCase();
+Future<void> _handleCommunityTap(CommunityDefinition community) async {
+  final currentUser = await _loadCurrentUserForListing();
+  final selectedCommunityId = _resolveCommunityIdForSelection(community);
 
-      return switch (community.title) {
-        'Lost Critters' =>
-          (post['section'] ?? '') == 'recent' ||
-              tags.contains('lostpet') ||
-              title.contains('find') ||
-              description.contains('missing'),
-        'Bird Lovers' => tags.contains('bird') || title.contains('parrot'),
-        'Brooklyn' => tags.contains('brooklyn') || location.contains('brooklyn'),
-        _ => false,
-      };
-    }).toList();
+  if (!mounted) return;
 
-    final currentUser = await _loadCurrentUserForListing();
-    final communityId = await _loadDefaultCommunityIdForListing();
-
-    if (!mounted) {
-      return;
+  // Join the community silently if logged in
+  if (currentUser != null && selectedCommunityId != null) {
+    try {
+      await _communityService.joinNeighborhood(
+        communityId: selectedCommunityId,
+        currentUserId: currentUser.id,
+      );
+      if (mounted) {
+        setState(() => _defaultCommunityId = selectedCommunityId);
+      }
+    } catch (_) {
+      // Already a member or error — continue anyway
     }
+  }
 
-    if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Log in to join a neighborhood. Showing posts only.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else if (communityId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No neighborhood is available yet. Showing posts only.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else {
-      final selectedCommunityId = _resolveCommunityIdForSelection(community);
+  if (!mounted) return;
 
-      if (selectedCommunityId != null) {
-        try {
-          await _communityService.joinNeighborhood(
-            communityId: selectedCommunityId,
-            currentUserId: currentUser.id,
+  // Load posts fresh from the API for this specific community
+  List<Map<String, String>> communityPosts = [];
+  if (selectedCommunityId != null) {
+    try {
+      final posts = await _postService.getCommunityPosts(
+        communityId: selectedCommunityId,
+        limit: 20,
+      );
+      communityPosts = posts.map((post) => post.toFeedMap()).toList();
+    } catch (_) {
+      // Fall back to filtered local posts if API fails
+      communityPosts = _visibleCommunityPosts.where((post) {
+        final tags = (post['tags'] ?? '').toLowerCase();
+        final title = (post['title'] ?? '').toLowerCase();
+        final description = (post['description'] ?? '').toLowerCase();
+        final communityTitle = community.title.toLowerCase();
+
+        return switch (community.title) {
+          'Lost Critters' =>
+            tags.contains('lost') || tags.contains('lostpet') ||
+            (post['section'] ?? '') == 'recent',
+          'Bird Lovers' => tags.contains('bird'),
+          'Brooklyn' => tags.contains('brooklyn'),
+          _ => tags.contains(communityTitle) ||
+             title.contains(communityTitle) ||
+             description.contains(communityTitle),
+        };
+      }).toList();
+    }
+  }
+
+  if (!mounted) return;
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => CommunityPostsScreen(
+        title: community.title,
+        posts: communityPosts,
+        onPostTap: (post) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MissingPostDetailsScreen(post: post),
+            ),
           );
-
-          if (mounted) {
-            setState(() {
-              _defaultCommunityId = selectedCommunityId;
-            });
-          }
-
-          if (!mounted) {
+        },
+        onAddListingTap: () async {
+          // Pass the selected community ID so new posts go to the right place
+          final user = await _loadCurrentUserForListing();
+          if (!mounted) return;
+          if (user == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Log in before creating a listing.')),
+            );
             return;
           }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Joined ${community.title}.'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        } catch (error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_authService.messageForError(error)),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CommunityPostsScreen(
-          title: community.title,
-          posts: filteredPosts,
-          onPostTap: (post) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MissingPostDetailsScreen(post: post),
+          final didCreate = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ListingScreen(
+                authorId: user.id,
+                communityId: selectedCommunityId ?? _defaultCommunityId ?? '',
               ),
-            );
-          },
-          onAddListingTap: () {
-            _openListingScreen();
-          },
-        ),
+            ),
+          );
+          if (didCreate == true && mounted) {
+            // Reload this community's posts and re-push the screen
+            Navigator.pop(context);
+            await _handleCommunityTap(community);
+          }
+        },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Future<List<CommunityPost>> _loadPostsFor(Community? community) async {
     final postsById = <String, CommunityPost>{};
