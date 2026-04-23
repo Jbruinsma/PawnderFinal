@@ -2,24 +2,25 @@ from typing import Annotated, Optional, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Depends, HTTPException
-from sqlalchemy import func, select, and_, Row, desc, union_all
+from sqlalchemy import func, select, and_, Row, desc, union_all, delete
 from sqlalchemy.orm import Session
 from starlette import status
 
 from app.core.security import get_current_user
-from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user
+from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts, \
+    retrieve_posts_with_stats, retrieve_post_likes
 from app.database import get_db
-from app.models import Community, User, user_communities, Post, Tag
+from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
 from app.schemas.post import (
-    BookmarkRequest, PostBookmarkResponseModel
+    BookmarkRequest, PostBookmarkResponseModel, PostLikeResponseModel, PostUnlikeResponseModel,
+    CommunityPostCommentRequest, PostComment
 )
 from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
     ExistingTag
-from app.schemas.user import Token
-from app.utils.formatting_utils import format_post
+from app.utils.formatting_utils import format_post_with_stats
 
 router = APIRouter(
     prefix="/community",
@@ -33,7 +34,7 @@ router = APIRouter(
     response_model= NeighborhoodResponseModel
 )
 def get_neighborhoods(
-        coords: Annotated[CoordinateSchema, Query()],
+        coords: CoordinateSchema = Depends(),
         current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ):
@@ -74,9 +75,11 @@ def get_neighborhoods(
 @router.post("/neighborhoods/{community_id}/join", summary="Join a neighborhood")
 def join_neighborhood(
         community_id: UUID,
-        current_user_id: UUID,
+        current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ) -> Message:
+    current_user_id: UUID = current_user.id
+
     stmt = (
         select(
             Community,
@@ -137,14 +140,15 @@ def join_neighborhood(
 
 
 @router.get(
-    path= "/posts",
-    summary= "List community posts"
+    path="/posts",
+    summary="List community posts"
 )
 async def get_posts(
         community_id: UUID,
-        limit: int = Query(default=10, ge=1),
+        limit: int = Query(default=25, ge=1),
         offset: int = Query(default=1, ge=1),
-        session: Session = Depends(get_db)
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     if limit < offset:
         raise HTTPException(
@@ -159,22 +163,19 @@ async def get_posts(
             detail="Community not found"
         )
 
-    limit: int = limit - offset + 1
-    offset: int = offset - 1
+    adjusted_limit: int = limit - offset + 1
+    adjusted_offset: int = offset - 1
 
-    stmt = (
-        select(Post)
-        .join(Post.author)
-        .where(Post.community_id == community_id)
-        .order_by(desc(Post.created_at))
-        .offset(offset)
-        .limit(limit)
+    post_rows = retrieve_posts_with_stats(
+        session=session,
+        limit=adjusted_limit,
+        offset=adjusted_offset,
+        community_id=community_id,
+        current_user_id=current_user.id
     )
 
-    posts = session.execute(stmt).scalars().all()
-
     formatted_posts = [
-        format_post(post) for post in posts
+        format_post_with_stats(row) for row in post_rows
     ]
 
     return CommunityPostsResponse(
@@ -312,7 +313,7 @@ def get_post(
     post = session.execute(stmt).scalars().first()
     if not post: return None
 
-    return format_post(post)
+    return format_post_with_stats(post)
 
 
 @router.post(
@@ -322,13 +323,13 @@ def get_post(
 )
 def bookmark_post(
     post_id: UUID,
-    body: BookmarkRequest,
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     result: Optional[bool] = bookmark_post_for_user(
         session= session,
         post_id= post_id,
-        user_id= body.user_id
+        user_id= current_user.id
     )
 
     if result is None:
@@ -367,3 +368,131 @@ def get_tags(
             ) for tag in db_tags
         ]
     )
+
+
+@router.post(
+    path="/posts/{post_id}/like",
+    summary="Like a post",
+    response_model=PostLikeResponseModel
+)
+async def like_post(
+        post_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    stmt = select(
+        select(Post.id).where(Post.id == post_id).exists(),
+        select(PostLikes.post_id).where(
+            PostLikes.post_id == post_id,
+            PostLikes.user_id == current_user.id
+        ).exists()
+    )
+
+    post_exists, like_exists = session.execute(stmt).first()
+
+    if not post_exists:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if like_exists:
+        raise HTTPException(status_code=400, detail="You have already liked this post")
+
+    new_like = PostLikes(
+        post_id= post_id,
+        user_id= current_user.id
+    )
+
+    session.add(new_like)
+    session.commit()
+
+    return PostLikeResponseModel(
+        message= "Post liked successfully",
+        post_id= post_id,
+        new_like_count= retrieve_post_likes(
+            session= session,
+            post_id= post_id
+        )
+    )
+
+
+@router.delete(
+    path="/posts/{post_id}/like",
+    summary="Unlike a post"
+)
+async def unlike_post(
+        post_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    stmt = (
+        delete(PostLikes)
+        .where(PostLikes.post_id == post_id, PostLikes.user_id == current_user.id)
+    )
+
+    result = session.execute(stmt)
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Like not found")
+
+    session.commit()
+
+    return PostUnlikeResponseModel(
+        message= "Post unliked successfully",
+        post_id= post_id,
+        new_like_count= retrieve_post_likes(
+            session= session,
+            post_id= post_id
+        )
+    )
+
+
+@router.post(
+    path="/posts/{post_id}/comment",
+    summary="Add a comment to a post",
+    response_model= PostComment
+)
+async def add_comment(
+        post_id: UUID,
+        new_comment_request: CommunityPostCommentRequest,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    query_items = [select(Post.id).where(Post.id == post_id).exists()]
+
+    if new_comment_request.replying_to_id:
+        query_items.append(
+            select(PostComments.id).where(
+                PostComments.id == new_comment_request.replying_to_id,
+                PostComments.post_id == post_id
+            ).exists()
+        )
+
+    stmt = select(*query_items)
+    results = session.execute(stmt).first()
+
+    if not results[0]:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if new_comment_request.replying_to_id and not results[1]:
+        raise HTTPException(status_code=404, detail="Parent comment not found")
+
+    new_comment = PostComments(
+        post_id= post_id,
+        user_id= current_user.id,
+        replying_to_id= new_comment_request.replying_to_id,
+        content= new_comment_request.content
+    )
+
+    session.add(new_comment)
+    session.commit()
+    session.refresh(new_comment)
+
+    return PostComment(
+        post_id= post_id,
+        user_id= current_user.id,
+        replying_to_id= new_comment_request.replying_to_id,
+        content= new_comment_request.content,
+        created_at= new_comment.created_at.isoformat(),
+        you_liked= False
+    )
+
+
+
