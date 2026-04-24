@@ -6,6 +6,16 @@ class PostService {
 
   final ApiClient _apiClient;
 
+  Future<int> _extractLikeCount({
+    required String path,
+    required bool shouldLike,
+  }) async {
+    final response = shouldLike
+        ? await _apiClient.post<Map<String, dynamic>>(path)
+        : await _apiClient.delete<Map<String, dynamic>>(path);
+    return (response.data?['new_like_count'] as num?)?.toInt() ?? 0;
+  }
+
   Future<List<CommunityPost>> getCommunityPosts({
     required String communityId,
     int limit = 10,
@@ -91,6 +101,24 @@ class PostService {
       data: {'content': content, 'replying_to_id': replyingToId},
     );
     return PostComment.fromJson(response.data ?? const {});
+  }
+
+  Future<int> setCommentLike({
+    required String postId,
+    required String commentId,
+    required bool shouldLike,
+  }) {
+    return _extractLikeCount(
+      path: '/community/posts/$postId/comments/$commentId/like',
+      shouldLike: shouldLike,
+    );
+  }
+
+  Future<int> setPostLike({required String postId, required bool shouldLike}) {
+    return _extractLikeCount(
+      path: '/community/posts/$postId/like',
+      shouldLike: shouldLike,
+    );
   }
 
   Future<List<CommunityPost>> getUserPosts({required String userId}) async {

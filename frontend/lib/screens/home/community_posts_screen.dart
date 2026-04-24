@@ -71,22 +71,9 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
           }
           final currentPost = _posts[index];
           setState(() {
-            _posts[index] = CommunityPost(
-              id: currentPost.id,
-              authorId: currentPost.authorId,
-              postType: currentPost.postType,
-              title: currentPost.title,
-              description: currentPost.description,
-              status: currentPost.status,
-              createdAt: currentPost.createdAt,
-              location: currentPost.location,
-              tags: currentPost.tags,
-              likeCount: currentPost.likeCount,
+            _posts[index] = currentPost.copyWith(
               commentCount: currentPost.commentCount + 1,
               comments: _commentsByPostId[post.id] ?? currentPost.comments,
-              communityId: currentPost.communityId,
-              authorName: currentPost.authorName,
-              imageUrl: currentPost.imageUrl,
             );
           });
         },
@@ -96,6 +83,47 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _togglePostLike(Map<String, String> postMap) async {
+    final postId = postMap['id'];
+    if (postId == null) {
+      return;
+    }
+
+    final index = _posts.indexWhere((item) => item.id == postId);
+    if (index == -1) {
+      return;
+    }
+
+    final post = _posts[index];
+    final shouldLike = !post.youLiked;
+
+    try {
+      final newLikeCount = await _postService.setPostLike(
+        postId: postId,
+        shouldLike: shouldLike,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _posts[index] = post.copyWith(
+          likeCount: newLikeCount,
+          youLiked: shouldLike,
+        );
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_apiClient.messageForError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -178,6 +206,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                     }
                   },
                   onCommentTap: _openCommentsSheet,
+                  onLikeTap: _togglePostLike,
                 ),
               ),
               Padding(
@@ -248,6 +277,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   final _authService = AuthService();
   bool _isLoading = true;
   bool _isSubmitting = false;
+  String? _replyingToCommentId;
   String? _errorMessage;
   String? _currentUserId;
   List<PostComment> _comments = const [];
@@ -324,6 +354,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       final comment = await widget.postService.addComment(
         postId: widget.postId,
         content: content,
+        replyingToId: _replyingToCommentId,
       );
       if (!mounted) {
         return;
@@ -332,6 +363,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       setState(() {
         _errorMessage = null;
         _comments = [..._comments, comment];
+        _replyingToCommentId = null;
       });
       widget.onCommentCreated(comment);
       widget.onCommentAdded();
@@ -352,10 +384,78 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     }
   }
 
+  Future<void> _toggleCommentLike(PostComment comment) async {
+    final shouldLike = !comment.youLiked;
+
+    try {
+      final newLikeCount = await widget.postService.setCommentLike(
+        postId: widget.postId,
+        commentId: comment.commentId,
+        shouldLike: shouldLike,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _comments = _comments
+            .map(
+              (item) => item.commentId == comment.commentId
+                  ? item.copyWith(likeCount: newLikeCount, youLiked: shouldLike)
+                  : item,
+            )
+            .toList();
+      });
+      widget.onCommentsLoaded(_comments);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.apiClient.messageForError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _startReply(PostComment comment) {
+    setState(() => _replyingToCommentId = comment.commentId);
+  }
+
+  void _cancelReply() {
+    setState(() => _replyingToCommentId = null);
+  }
+
+  String? _authorNameForComment(String? commentId) {
+    if (commentId == null) {
+      return null;
+    }
+
+    for (final comment in _comments) {
+      if (comment.commentId == commentId) {
+        return comment.userId == _currentUserId ? 'You' : comment.authorName;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final replyingToName = _authorNameForComment(_replyingToCommentId);
+    final rootComments = _comments
+        .where((comment) => comment.replyingToId == null)
+        .toList();
+    final repliesByParentId = <String, List<PostComment>>{};
+    for (final comment in _comments.where(
+      (comment) => comment.replyingToId != null,
+    )) {
+      repliesByParentId
+          .putIfAbsent(comment.replyingToId!, () => [])
+          .add(comment);
+    }
 
     return SafeArea(
       child: Padding(
@@ -437,61 +537,164 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                        itemCount: _comments.length,
+                        itemCount: rootComments.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
-                          final comment = _comments[index];
-                          return _CommentCard(
-                            comment: comment,
-                            currentUserId: _currentUserId,
+                          final comment = rootComments[index];
+                          final replies =
+                              repliesByParentId[comment.commentId] ?? const [];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _CommentCard(
+                                comment: comment,
+                                currentUserId: _currentUserId,
+                                onReplyTap: () => _startReply(comment),
+                                onLikeTap: () => _toggleCommentLike(comment),
+                              ),
+                              if (replies.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 18),
+                                  child: Container(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      14,
+                                      12,
+                                      0,
+                                      2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary
+                                          .withValues(alpha: 0.06),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: theme.colorScheme.primary,
+                                          width: 3,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Column(
+                                          children: replies
+                                              .map(
+                                                (reply) => Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        bottom: 10,
+                                                      ),
+                                                  child: _CommentCard(
+                                                    comment: reply,
+                                                    currentUserId:
+                                                        _currentUserId,
+                                                    onLikeTap: () =>
+                                                        _toggleCommentLike(
+                                                          reply,
+                                                        ),
+                                                    isReply: true,
+                                                  ),
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           );
                         },
                       ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Container(
+                    if (replyingToName != null)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: theme.dividerColor),
                         ),
-                        child: TextField(
-                          controller: _controller,
-                          minLines: 1,
-                          maxLines: 4,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            hintText: 'Write a comment...',
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Replying to $replyingToName',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _cancelReply,
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: theme.cardColor,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: theme.dividerColor),
+                            ),
+                            child: TextField(
+                              controller: _controller,
+                              minLines: 1,
+                              maxLines: 4,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(
+                                hintText: replyingToName == null
+                                    ? 'Write a comment...'
+                                    : 'Write a reply...',
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton(
-                      onPressed: _isSubmitting ? null : _submitComment,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSubmitting ? null : _submitComment,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                          ),
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(replyingToName == null ? 'Send' : 'Reply'),
                         ),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Send'),
+                      ],
                     ),
                   ],
                 ),
@@ -507,8 +710,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 class _CommentCard extends StatelessWidget {
   final PostComment comment;
   final String? currentUserId;
+  final VoidCallback? onReplyTap;
+  final VoidCallback onLikeTap;
+  final bool isReply;
 
-  const _CommentCard({required this.comment, this.currentUserId});
+  const _CommentCard({
+    required this.comment,
+    this.onReplyTap,
+    required this.onLikeTap,
+    this.currentUserId,
+    this.isReply = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -521,9 +733,13 @@ class _CommentCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: isReply
+            ? theme.colorScheme.primary.withValues(alpha: 0.05)
+            : theme.cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: theme.dividerColor),
+        border: Border.all(
+          color: isReply ? theme.colorScheme.primary : theme.dividerColor,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,6 +775,54 @@ class _CommentCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: onLikeTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 2,
+                    vertical: 2,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        comment.youLiked
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        size: 18,
+                        color: comment.youLiked
+                            ? Colors.redAccent
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${comment.likeCount}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              if (!isReply && onReplyTap != null)
+                TextButton(
+                  onPressed: onReplyTap,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Reply'),
+                ),
+            ],
           ),
         ],
       ),
