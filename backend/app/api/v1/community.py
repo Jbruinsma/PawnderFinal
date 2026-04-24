@@ -8,7 +8,7 @@ from starlette import status
 
 from app.core.security import get_current_user
 from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts, \
-    retrieve_posts_with_stats, retrieve_post_likes
+    retrieve_posts_with_stats, retrieve_post_likes, _get_post_stats_columns
 from app.database import get_db
 from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
 from app.schemas.common import Message
@@ -20,12 +20,34 @@ from app.schemas.post import (
 )
 from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
     ExistingTag
+from app.services.feed_engine import generate_algorithmic_feed
 from app.utils.formatting_utils import format_post_with_stats, format_plain_post
 
 router = APIRouter(
     prefix="/community",
     tags=["5.0 Community Hub & Tagging"]
 )
+
+
+@router.get(
+    path="/new-feed",
+    summary="Retrieve a user's feed based on post performance once they open the app"
+)
+async def retrieve_initial_feed(
+        coords: CoordinateSchema = Depends(),
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(get_db)
+):
+    communities, raw_posts = generate_algorithmic_feed(
+        session= session,
+        current_user= current_user,
+        coords= coords
+    )
+
+    return {
+        "communities": communities,
+        "posts": [format_post_with_stats(row) for row in raw_posts]
+    }
 
 
 @router.get(
@@ -232,6 +254,59 @@ def delete_post(
     session.commit()
     return {"status": "success", "message": "Post deleted"}
 
+# OLD CODE MIGHT REUSE DON'T DELETE
+
+# @router.post("/posts", summary="Create a new community post")
+# def create_post(
+#     post_creation_request: PostCreationRequest,
+#     session: Session = Depends(get_db)
+# ):
+#     results = session.execute(
+#         select(User, Community)
+#         .join(Community, Community.id == post_creation_request.community_id)
+#         .where(User.id == post_creation_request.author_id)
+#     ).first()
+#
+#     if not results:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Author or Community not found"
+#         )
+#
+#     author, community = results
+#
+#     existing_tags = session.execute(
+#         select(Tag).where(Tag.name.in_(post_creation_request.tags))
+#     ).scalars().all()
+#
+#     new_post = Post(
+#         author_id=post_creation_request.author_id,
+#         community_id=post_creation_request.community_id,
+#         post_type=post_creation_request.post_type,
+#         title=post_creation_request.title,
+#         description=post_creation_request.description,
+#         location=f"POINT({post_creation_request.location.longitude} {post_creation_request.location.latitude})",
+#         tags= list(existing_tags)
+#     )
+#
+#     # LOGIC TO BUILD: Handle image file validation and persistent cloud storage upload
+#     # LOGIC TO BUILD: Assign the resulting permanent URL to new_post.image_url
+#
+#     try:
+#         session.add(new_post)
+#         session.commit()
+#         session.refresh(new_post)
+#
+#         # LOGIC TO BUILD: Dispatch events for "Community Interaction Alerts" to notify nearby neighbors
+#
+#         return {
+#             "status": "success",
+#             "post_id": new_post.id,
+#             "message": "Post created successfully"
+#         }
+#     except Exception as e:
+#         session.rollback()
+#         raise HTTPException(status_code=500, detail="Database commit failed")
 
 
 @router.get(
@@ -441,47 +516,60 @@ async def add_comment(
         you_liked= False
     )
 
+
 @router.get("/users/{user_id}/posts", summary="Get posts by a user")
 def get_user_posts(
-    user_id: UUID,
-    session: Session = Depends(get_db)
+        user_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     stmt = (
-        select(Post)
+        select(*_get_post_stats_columns(current_user.id))
         .join(Post.author)
         .where(Post.author_id == user_id)
         .order_by(desc(Post.created_at))
     )
-    posts = session.execute(stmt).scalars().all()
-    return CommunityPostsResponse(posts=[format_plain_post(p) for p in posts])
+
+    rows = session.execute(stmt).all()
+
+    return CommunityPostsResponse(
+        posts=[format_post_with_stats(row) for row in rows]
+    )
 
 
-@router.get("/users/{user_id}/bookmarks", summary="Get bookmarked posts for a user")
+@router.get("/bookmarks", summary="Get bookmarked posts for current user")
 def get_user_bookmarks(
-    user_id: UUID,
-    session: Session = Depends(get_db)
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     from app.models.user import bookmarks as bookmarks_table
+
     stmt = (
-        select(Post)
+        select(*_get_post_stats_columns(current_user.id))
         .join(bookmarks_table, bookmarks_table.c.post_id == Post.id)
         .join(Post.author)
-        .where(bookmarks_table.c.user_id == user_id)
+        .where(bookmarks_table.c.user_id == current_user.id)
         .order_by(desc(Post.created_at))
     )
-    posts = session.execute(stmt).scalars().all()
-    return CommunityPostsResponse(posts=[format_plain_post(p) for p in posts])
+
+    rows = session.execute(stmt).all()
+
+    return CommunityPostsResponse(
+        posts=[format_post_with_stats(row) for row in rows]
+    )
+
 
 @router.delete("/posts/{post_id}/bookmark", summary="Remove a bookmark")
 def remove_bookmark(
-    post_id: UUID,
-    body: BookmarkRequest,
-    session: Session = Depends(get_db)
+        post_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     from app.models.user import bookmarks as bookmarks_table
+
     result = session.execute(
         select(bookmarks_table).where(
-            bookmarks_table.c.user_id == body.user_id,
+            bookmarks_table.c.user_id == current_user.id,
             bookmarks_table.c.post_id == post_id
         )
     ).first()
@@ -491,9 +579,10 @@ def remove_bookmark(
 
     session.execute(
         bookmarks_table.delete().where(
-            bookmarks_table.c.user_id == body.user_id,
+            bookmarks_table.c.user_id == current_user.id,
             bookmarks_table.c.post_id == post_id
         )
     )
     session.commit()
+
     return {"status": "success", "message": "Bookmark removed"}
