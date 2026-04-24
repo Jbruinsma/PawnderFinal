@@ -5,6 +5,8 @@ from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy import func, select, and_, Row, desc, union_all, delete
 from sqlalchemy.orm import Session
 from starlette import status
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Polygon
 
 from app.core.security import get_current_user
 from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts_with_stats, \
@@ -12,7 +14,7 @@ from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_
 from app.database import get_db
 from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
 from app.schemas.common import Message
-from app.schemas.community import NeighborhoodResponseModel, Neighborhood
+from app.schemas.community import NeighborhoodResponseModel, Neighborhood, CommunityCreateRequest, CommunityCreateResponse
 from app.schemas.core import CoordinateSchema
 from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
     ExistingTag
@@ -27,6 +29,50 @@ router = APIRouter(
     prefix="/community",
     tags=["5.0 Community Hub & Tagging"]
 )
+
+
+def _build_square_boundary(latitude: float, longitude: float, half_side_degrees: float = 0.01):
+    return Polygon([
+        (longitude - half_side_degrees, latitude - half_side_degrees),
+        (longitude + half_side_degrees, latitude - half_side_degrees),
+        (longitude + half_side_degrees, latitude + half_side_degrees),
+        (longitude - half_side_degrees, latitude + half_side_degrees),
+        (longitude - half_side_degrees, latitude - half_side_degrees),
+    ])
+
+
+def _serialize_neighborhoods_with_stats(session: Session, communities: list[Community]) -> list[Neighborhood]:
+    if not communities:
+        return []
+
+    community_ids = [community.id for community in communities]
+
+    post_counts = dict(
+        session.execute(
+            select(Post.community_id, func.count(Post.id))
+            .where(Post.community_id.in_(community_ids))
+            .group_by(Post.community_id)
+        ).all()
+    )
+
+    member_counts = dict(
+        session.execute(
+            select(user_communities.c.community_id, func.count(user_communities.c.user_id))
+            .where(user_communities.c.community_id.in_(community_ids))
+            .group_by(user_communities.c.community_id)
+        ).all()
+    )
+
+    return [
+        Neighborhood(
+            id=str(community.id),
+            name=str(community.name),
+            description=str(community.description or ""),
+            post_count=post_counts.get(community.id, 0),
+            member_count=member_counts.get(community.id, 0),
+        )
+        for community in communities
+    ]
 
 
 @router.get(
@@ -81,16 +127,55 @@ def get_neighborhoods(
         .all()
     )
 
-    serialized_neighborhoods = [
-        Neighborhood(
-            id= str(neighborhood.id),
-            name= str(neighborhood.name),
-            description= str(neighborhood.description)
-        ) for neighborhood in communities
-    ]
-
     return NeighborhoodResponseModel(
-        neighborhoods= serialized_neighborhoods
+        neighborhoods=_serialize_neighborhoods_with_stats(session, communities)
+    )
+
+
+@router.post(
+    path="/neighborhoods",
+    summary="Create a neighborhood",
+    response_model=CommunityCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_neighborhood(
+        payload: CommunityCreateRequest,
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(get_db)
+):
+    existing = session.execute(
+        select(Community.id).where(func.lower(Community.name) == payload.name.strip().lower())
+    ).scalar()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A community with this name already exists."
+        )
+
+    community = Community(
+        name=payload.name.strip(),
+        description=payload.description.strip(),
+        geofence_boundary=from_shape(
+            _build_square_boundary(payload.latitude, payload.longitude),
+            srid=4326,
+        )
+    )
+
+    session.add(community)
+    current_user.joined_communities.append(community)
+    session.commit()
+    session.refresh(community)
+
+    return CommunityCreateResponse(
+        message=f"Created {community.name}",
+        community=Neighborhood(
+            id=str(community.id),
+            name=community.name,
+            description=community.description or "",
+            post_count=0,
+            member_count=1,
+        )
     )
 
 
@@ -158,6 +243,28 @@ def join_neighborhood(
 
     return Message(
         message= f"Successfully joined {community.name}"
+    )
+
+
+@router.get(
+    path="/my-neighborhoods",
+    summary="List the current user's saved neighborhoods",
+    response_model=NeighborhoodResponseModel,
+)
+def get_my_neighborhoods(
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(get_db)
+):
+    user = (
+        session.query(User)
+        .filter(User.id == current_user.id)
+        .first()
+    )
+
+    communities = user.joined_communities if user else []
+
+    return NeighborhoodResponseModel(
+        neighborhoods=_serialize_neighborhoods_with_stats(session, communities)
     )
 
 

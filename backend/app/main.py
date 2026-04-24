@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.v1 import auth, geo, community
+from .api.v1 import auth, geo, community, messages
 from .database import engine, get_db
 from . import models
 
@@ -37,6 +37,8 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(community.router, prefix="/api/v1")
 app.include_router(geo.router, prefix="/api/v1")
+app.include_router(messages.router, prefix="/api/v1")
+app.include_router(messages.messages_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():

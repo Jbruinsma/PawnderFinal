@@ -1,5 +1,6 @@
 from uuid import UUID
-from sqlalchemy import select, desc, and_, func
+from geoalchemy2 import Geometry
+from sqlalchemy import select, desc, and_, func, cast
 from sqlalchemy.orm import Session
 
 from app.models import Post, Tag, PostLikes, PostComments
@@ -21,7 +22,9 @@ def get_post_stats_columns(current_user_id: UUID) -> list:
         Post,
         func.coalesce(like_count, 0).label("like_count"),
         func.coalesce(comment_count, 0).label("comment_count"),
-        you_liked.label("you_liked")
+        you_liked.label("you_liked"),
+        func.ST_X(cast(Post.location, Geometry)).label("lon"),
+        func.ST_Y(cast(Post.location, Geometry)).label("lat"),
     ]
 
 
