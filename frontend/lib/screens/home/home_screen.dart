@@ -283,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onPostTap: (post) => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => MissingPostDetailsScreen(post: post),
+              builder: (_) => MissingPostDetailsScreen(post: post.toFeedMap()),
             ),
           ),
           onAddListingTap: () async {
@@ -318,15 +318,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<List<Map<String, String>>> _getCommunityFeedPosts({
+  Future<List<CommunityPost>> _getCommunityFeedPosts({
     required String communityId,
   }) async {
     try {
-      final posts = await _postService.getCommunityPosts(
+      return await _postService.getCommunityPosts(
         communityId: communityId,
         limit: 50,
       );
-      return posts.map((post) => post.toFeedMap()).toList();
     } catch (_) {
       return [];
     }

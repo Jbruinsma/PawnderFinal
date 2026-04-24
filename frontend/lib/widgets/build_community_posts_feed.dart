@@ -6,6 +6,7 @@ Widget buildCommunityPostsFeed({
   required List<Map<String, String>> posts,
   required String searchQuery,
   required ValueChanged<Map<String, String>> onPostTap,
+  Future<void> Function(Map<String, String> post)? onCommentTap,
 }) {
   final query = searchQuery.trim().toLowerCase();
 
@@ -46,7 +47,11 @@ Widget buildCommunityPostsFeed({
     separatorBuilder: (context, index) => const SizedBox(height: 14),
     itemBuilder: (context, index) {
       final post = visiblePosts[index];
-      return _StackedPostCard(post: post, onTap: () => onPostTap(post));
+      return _StackedPostCard(
+        post: post,
+        onTap: () => onPostTap(post),
+        onCommentTap: onCommentTap == null ? null : () => onCommentTap(post),
+      );
     },
   );
 }
@@ -54,8 +59,13 @@ Widget buildCommunityPostsFeed({
 class _StackedPostCard extends StatelessWidget {
   final Map<String, String> post;
   final VoidCallback onTap;
+  final VoidCallback? onCommentTap;
 
-  const _StackedPostCard({required this.post, required this.onTap});
+  const _StackedPostCard({
+    required this.post,
+    required this.onTap,
+    this.onCommentTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -172,12 +182,60 @@ class _StackedPostCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _InlineMeta(
+                        icon: Icons.mode_comment_outlined,
+                        label: '${post['commentCount'] ?? '0'} comments',
+                      ),
+                      const SizedBox(width: 12),
+                      _InlineMeta(
+                        icon: Icons.favorite_border_rounded,
+                        label: '${post['likeCount'] ?? '0'} likes',
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: onCommentTap,
+                        icon: const Icon(Icons.chat_bubble_outline_rounded),
+                        label: const Text('Comment'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _InlineMeta extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InlineMeta({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
