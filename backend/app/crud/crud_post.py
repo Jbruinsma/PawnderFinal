@@ -7,7 +7,7 @@ from app.models.user import bookmarks
 from app.schemas.post import PostCreationRequest
 
 
-def _get_post_stats_columns(current_user_id: UUID) -> list:
+def get_post_stats_columns(current_user_id: UUID) -> list:
     """Helper to generate consistent statistical columns for post queries."""
     like_count = select(func.count(PostLikes.post_id)).where(PostLikes.post_id == Post.id).correlate(
         Post).scalar_subquery()
@@ -62,7 +62,7 @@ def retrieve_posts_with_stats(
 ):
     """Fetch paginated community posts with aggregated likes, comments, and current user status."""
     stmt = (
-        select(*_get_post_stats_columns(current_user_id))
+        select(*get_post_stats_columns(current_user_id))
         .join(Post.author)
         .where(Post.community_id == community_id)
         .order_by(desc(Post.created_at))

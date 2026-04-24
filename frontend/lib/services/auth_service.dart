@@ -14,7 +14,7 @@ class AuthService {
     String role = 'Community User',
   }) async {
     await _apiClient.dio.post(
-      '/api/v1/auth/register',
+      'auth/register',
       data: {
         'role': role,
         'email': email,
@@ -26,7 +26,7 @@ class AuthService {
 
   Future<void> login({required String email, required String password}) async {
     final response = await _apiClient.dio.post<Map<String, dynamic>>(
-      '/api/v1/auth/login',
+      'auth/login',
       data: {'email': email, 'password': password},
     );
 
@@ -41,7 +41,7 @@ class AuthService {
 
   Future<CurrentUser> getCurrentUser() async {
     final response = await _apiClient.dio.get<Map<String, dynamic>>(
-      '/api/v1/auth/me',
+      'auth/me',
     );
 
     return CurrentUser.fromJson(response.data ?? const {});
@@ -49,7 +49,7 @@ class AuthService {
 
   Future<void> updateLocation(PostLocation location) async {
     await _apiClient.dio.put(
-      '/api/v1/auth/me/location',
+      'auth/me/location',
       data: location.toJson(),
     );
   }
