@@ -26,6 +26,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   void _showAllNeighborhoods() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -33,45 +34,55 @@ class _CommunityScreenState extends State<CommunityScreen> {
       builder: (_) {
         if (widget.isLoading && widget.communities.isEmpty) {
           return const SizedBox(
-            height: 200,
+            height: 260,
             child: Center(child: CircularProgressIndicator()),
           );
         }
         if (widget.communities.isEmpty) {
           return const SizedBox(
-            height: 200,
+            height: 260,
             child: Center(child: Text('No neighborhoods found')),
           );
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(24),
-          itemCount: widget.communities.length,
-          separatorBuilder: (_, index) => const Divider(height: 1),
-          itemBuilder: (_, i) {
-            final neighborhood = widget.communities[i];
-            return ListTile(
-              title: Text(
-                neighborhood.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'All Communities',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
-              subtitle: Text(neighborhood.description),
-              leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                child: const Icon(
-                  Icons.location_on,
-                  color: Colors.white,
-                  size: 18,
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: widget.communities.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final community = widget.communities[index];
+                      return _CommunityCard(
+                        community: community,
+                        isSelected:
+                            community.name == widget.selectedCommunityName,
+                        onTap: () {
+                          Navigator.pop(context);
+                          widget.onCommunityTap(community);
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                widget.onCommunityTap(neighborhood);
-              },
-            );
-          },
+              ],
+            ),
+          ),
         );
       },
     );
@@ -80,7 +91,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final featuredCommunities = widget.communities.take(3).toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
@@ -93,7 +103,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             icon: Icons.travel_explore_rounded,
           ),
           const SizedBox(height: 18),
-          if (featuredCommunities.isEmpty)
+          if (widget.communities.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -114,46 +124,43 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ),
             )
           else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < featuredCommunities.length; i++) ...[
-                  Expanded(
-                    child: _CommunityTile(
-                      label: featuredCommunities[i].name,
-                      icon: Icons.location_city_rounded,
-                      isSelected:
-                          featuredCommunities[i].name ==
-                          widget.selectedCommunityName,
-                      onTap: () =>
-                          widget.onCommunityTap(featuredCommunities[i]),
-                    ),
-                  ),
-                  if (i < featuredCommunities.length - 1)
-                    const SizedBox(width: 10),
-                ],
-              ],
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.only(bottom: 96),
+                itemCount: widget.communities.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 14),
+                itemBuilder: (context, index) {
+                  final community = widget.communities[index];
+                  return _CommunityCard(
+                    community: community,
+                    isSelected: community.name == widget.selectedCommunityName,
+                    onTap: () => widget.onCommunityTap(community),
+                  );
+                },
+              ),
             ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: _showAllNeighborhoods,
-              child: Text(
-                'Explore More\nCommunities',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w700,
-                  decoration: TextDecoration.underline,
+          if (widget.communities.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: _showAllNeighborhoods,
+                child: Text(
+                  'Explore More\nCommunities',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
             ),
-          ),
-          const Spacer(),
+          ],
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(top: 12, bottom: 12),
             child: Align(
               alignment: Alignment.centerRight,
               child: IconButton.filled(
@@ -176,15 +183,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 }
 
-class _CommunityTile extends StatelessWidget {
-  final String label;
-  final IconData icon;
+class _CommunityCard extends StatelessWidget {
+  final Community community;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _CommunityTile({
-    required this.label,
-    required this.icon,
+  const _CommunityCard({
+    required this.community,
     required this.isSelected,
     required this.onTap,
   });
@@ -195,56 +200,155 @@ class _CommunityTile extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
-      child: Column(
-        children: [
-          AspectRatio(
-            aspectRatio: 1,
-            child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.10)
+              : theme.cardColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? theme.colorScheme.primary
-                      : theme.dividerColor,
-                  width: isSelected ? 2 : 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+                color: isSelected
+                    ? theme.colorScheme.primary.withValues(alpha: 0.14)
+                    : theme.scaffoldBackgroundColor.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.location_city_rounded,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    community.name,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    community.description.isEmpty
+                        ? 'Neighborhood pet alerts and local community posts.'
+                        : community.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _StatPill(
+                        icon: Icons.article_outlined,
+                        label: '${community.postCount} posts',
+                        isSelected: isSelected,
+                      ),
+                      _StatPill(
+                        icon: Icons.group_outlined,
+                        label: '${community.memberCount} members',
+                        isSelected: isSelected,
+                      ),
+                    ],
                   ),
                 ],
               ),
-              child: ClipOval(
-                child: ColoredBox(
-                  color: isSelected
-                      ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                      : theme.cardColor,
-                  child: Icon(
-                    icon,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface,
-                    size: 30,
-                  ),
-                ),
-              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.1,
+            const SizedBox(width: 12),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 18,
               color: isSelected
                   ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+
+  const _StatPill({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? theme.colorScheme.primary.withValues(alpha: 0.12)
+            : theme.scaffoldBackgroundColor.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],

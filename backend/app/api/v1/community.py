@@ -41,6 +41,40 @@ def _build_square_boundary(latitude: float, longitude: float, half_side_degrees:
     ])
 
 
+def _serialize_neighborhoods_with_stats(session: Session, communities: list[Community]) -> list[Neighborhood]:
+    if not communities:
+        return []
+
+    community_ids = [community.id for community in communities]
+
+    post_counts = dict(
+        session.execute(
+            select(Post.community_id, func.count(Post.id))
+            .where(Post.community_id.in_(community_ids))
+            .group_by(Post.community_id)
+        ).all()
+    )
+
+    member_counts = dict(
+        session.execute(
+            select(user_communities.c.community_id, func.count(user_communities.c.user_id))
+            .where(user_communities.c.community_id.in_(community_ids))
+            .group_by(user_communities.c.community_id)
+        ).all()
+    )
+
+    return [
+        Neighborhood(
+            id=str(community.id),
+            name=str(community.name),
+            description=str(community.description or ""),
+            post_count=post_counts.get(community.id, 0),
+            member_count=member_counts.get(community.id, 0),
+        )
+        for community in communities
+    ]
+
+
 @router.get(
     path="/new-feed",
     summary="Retrieve a user's feed based on post performance once they open the app"
@@ -93,16 +127,8 @@ def get_neighborhoods(
         .all()
     )
 
-    serialized_neighborhoods = [
-        Neighborhood(
-            id= str(neighborhood.id),
-            name= str(neighborhood.name),
-            description= str(neighborhood.description)
-        ) for neighborhood in communities
-    ]
-
     return NeighborhoodResponseModel(
-        neighborhoods= serialized_neighborhoods
+        neighborhoods=_serialize_neighborhoods_with_stats(session, communities)
     )
 
 
@@ -147,6 +173,8 @@ def create_neighborhood(
             id=str(community.id),
             name=community.name,
             description=community.description or "",
+            post_count=0,
+            member_count=1,
         )
     )
 
@@ -236,14 +264,7 @@ def get_my_neighborhoods(
     communities = user.joined_communities if user else []
 
     return NeighborhoodResponseModel(
-        neighborhoods=[
-            Neighborhood(
-                id=str(community.id),
-                name=community.name,
-                description=community.description or "",
-            )
-            for community in communities
-        ]
+        neighborhoods=_serialize_neighborhoods_with_stats(session, communities)
     )
 
 
