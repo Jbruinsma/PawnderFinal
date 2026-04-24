@@ -39,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   CurrentUser? _currentUser;
   String? _defaultCommunityId;
+  String? _selectedCommunityName;
   List<Community> _nearbyCommunities = const [];
   bool _isLoadingCommunityPosts = false;
   bool _shouldShowFallbackCommunityPosts = true;
@@ -200,6 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _currentUser = currentUser;
         _defaultCommunityId = defaultCommunity?.id;
+        _selectedCommunityName = defaultCommunity?.name;
         _nearbyCommunities = neighborhoods;
         _communityPosts = communityPosts;
         _nearbyPets = nearbyPets;
@@ -214,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _currentUser = currentUser;
         _defaultCommunityId = defaultCommunity?.id;
+        _selectedCommunityName = defaultCommunity?.name;
         _nearbyCommunities = neighborhoods;
         _shouldShowFallbackCommunityPosts = true;
         _shouldShowFallbackPets = true;
@@ -279,68 +282,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String? _resolveCommunityIdForSelection(CommunityDefinition community) {
-    if (_nearbyCommunities.isEmpty) {
-      return _defaultCommunityId;
+  Future<void> _handleCommunityTap(Community community) async {
+    final currentUser = await _loadCurrentUserForListing();
+    final selectedCommunityId = community.id;
+
+    if (!mounted) return;
+
+    if (currentUser != null) {
+      try {
+        await _communityService.joinNeighborhood(
+          communityId: selectedCommunityId,
+        );
+        if (mounted) {
+          setState(() {
+            _defaultCommunityId = selectedCommunityId;
+            _selectedCommunityName = community.name;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _selectedCommunityName = community.name;
+          });
+        }
+      }
+    } else if (mounted) {
+      setState(() {
+        _selectedCommunityName = community.name;
+      });
     }
 
-    final target = community.title.toLowerCase();
-    Community? matched;
+    if (!mounted) return;
 
-    for (final item in _nearbyCommunities) {
-      final name = item.name.toLowerCase();
-      final description = item.description.toLowerCase();
-
-      if (name.contains(target) || target.contains(name)) {
-        matched = item;
-        break;
-      }
-
-      if (target == 'brooklyn' && name.contains('brooklyn')) {
-        matched = item;
-        break;
-      }
-
-      if (target == 'bird lovers' && (name.contains('bird') || description.contains('bird'))) {
-        matched = item;
-        break;
-      }
-
-      if (target == 'lost critters' && (name.contains('lost') || description.contains('lost'))) {
-        matched = item;
-        break;
-      }
-    }
-
-    return matched?.id ?? _defaultCommunityId ?? _nearbyCommunities.first.id;
-  }
-
-Future<void> _handleCommunityTap(CommunityDefinition community) async {
-  final currentUser = await _loadCurrentUserForListing();
-  final selectedCommunityId = _resolveCommunityIdForSelection(community);
-
-  if (!mounted) return;
-
-  // Join the community silently if logged in
-  if (currentUser != null && selectedCommunityId != null) {
-    try {
-      await _communityService.joinNeighborhood(
-        communityId: selectedCommunityId,
-        currentUserId: currentUser.id,
-      );
-      if (mounted) {
-        setState(() => _defaultCommunityId = selectedCommunityId);
-      }
-    } catch (_) {
-      // Already a member or error — continue anyway
-    }
-  }
-
-  if (!mounted) return;
-
-  // Load posts fresh from the API for this specific community
-  List<Map<String, String>> communityPosts = [];
-  if (selectedCommunityId != null) {
+    List<Map<String, String>> communityPosts = [];
     try {
       final posts = await _postService.getCommunityPosts(
         communityId: selectedCommunityId,
@@ -348,98 +322,61 @@ Future<void> _handleCommunityTap(CommunityDefinition community) async {
       );
       communityPosts = posts.map((post) => post.toFeedMap()).toList();
     } catch (_) {
-      // Fall back to filtered local posts if API fails
-      communityPosts = _visibleCommunityPosts.where((post) {
-        final tags = (post['tags'] ?? '').toLowerCase();
-        final title = (post['title'] ?? '').toLowerCase();
-        final description = (post['description'] ?? '').toLowerCase();
-        final communityTitle = community.title.toLowerCase();
-
-        return switch (community.title) {
-          'Lost Critters' =>
-            tags.contains('lost') || tags.contains('lostpet') ||
-            (post['section'] ?? '') == 'recent',
-          'Bird Lovers' => tags.contains('bird'),
-          'Brooklyn' => tags.contains('brooklyn'),
-          _ => tags.contains(communityTitle) ||
-             title.contains(communityTitle) ||
-             description.contains(communityTitle),
-        };
-      }).toList();
+      communityPosts = [];
     }
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityPostsScreen(
+          title: community.name,
+          posts: communityPosts,
+          onPostTap: (post) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MissingPostDetailsScreen(post: post),
+              ),
+            );
+          },
+          onAddListingTap: () async {
+            final user = await _loadCurrentUserForListing();
+            if (!mounted) return;
+            if (user == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Log in before creating a listing.'),
+                ),
+              );
+              return;
+            }
+            final didCreate = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ListingScreen(
+                  authorId: user.id,
+                  communityId: selectedCommunityId,
+                ),
+              ),
+            );
+            if (didCreate == true && mounted) {
+              Navigator.pop(context);
+              await _handleCommunityTap(community);
+            }
+          },
+        ),
+      ),
+    );
   }
 
-  if (!mounted) return;
-
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => CommunityPostsScreen(
-        title: community.title,
-        posts: communityPosts,
-        onPostTap: (post) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MissingPostDetailsScreen(post: post),
-            ),
-          );
-        },
-        onAddListingTap: () async {
-          // Pass the selected community ID so new posts go to the right place
-          final user = await _loadCurrentUserForListing();
-          if (!mounted) return;
-          if (user == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Log in before creating a listing.')),
-            );
-            return;
-          }
-          final didCreate = await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ListingScreen(
-                authorId: user.id,
-                communityId: selectedCommunityId ?? _defaultCommunityId ?? '',
-              ),
-            ),
-          );
-          if (didCreate == true && mounted) {
-            // Reload this community's posts and re-push the screen
-            Navigator.pop(context);
-            await _handleCommunityTap(community);
-          }
-        },
-      ),
-    ),
-  );
-}
-
   Future<List<CommunityPost>> _loadPostsFor(Community? community) async {
-    final postsById = <String, CommunityPost>{};
-
-    try {
-      final posts = await _postService.getGeoFeed();
-      for (final post in posts) {
-        postsById[post.id] = post;
-      }
-    } catch (_) {
-      // Fall back to the neighborhood endpoint below when location auth is not ready.
-    }
-
     if (community == null) {
-      return postsById.values.toList();
+      return const [];
     }
 
-    final communityPosts = await _postService.getCommunityPosts(
-      communityId: community.id,
-      limit: 20,
-    );
-    for (final post in communityPosts) {
-      postsById[post.id] = post;
-    }
-
-    return postsById.values.toList();
+    return _postService.getCommunityPosts(communityId: community.id, limit: 20);
   }
 
   Future<void> _openListingScreen() async {
@@ -492,6 +429,8 @@ Future<void> _handleCommunityTap(CommunityDefinition community) async {
       body: SafeArea(
         child: switch (_selectedNavIndex) {
           1 => CommunityScreen(
+            communities: _nearbyCommunities,
+            selectedCommunityName: _selectedCommunityName,
             posts: _visibleCommunityPosts,
             isLoading: _isLoadingCommunityPosts,
             onRefresh: _loadCommunityData,
