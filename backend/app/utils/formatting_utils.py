@@ -22,8 +22,8 @@ def format_post_with_stats(row) -> CommunityPost:
         status=post.status,
         created_at=post.created_at,
         location= PostLocation(
-            longitude= to_shape(post.location).x,
-            latitude= to_shape(post.location).y
+            longitude= row.lon,
+            latitude= row.lat
         ),
         like_count=like_count,
         comment_count=comment_count,

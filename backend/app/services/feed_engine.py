@@ -1,5 +1,6 @@
-from sqlalchemy import select, func, desc, and_
-from sqlalchemy.orm import Session
+from geoalchemy2 import Geometry
+from sqlalchemy import select, func, desc, and_, cast
+from sqlalchemy.orm import Session, defer
 
 from app.models import Post, PostLikes, PostComments, Community
 from app.models.community import user_communities
@@ -24,6 +25,7 @@ def generate_algorithmic_feed(session: Session, current_user: User, coords):
             desc(func.coalesce(member_count, 0))
         )
         .limit(10)
+        .options(defer(Community.geofence_boundary))
     )
     communities = session.execute(communities_stmt).scalars().all()
 
@@ -54,12 +56,15 @@ def generate_algorithmic_feed(session: Session, current_user: User, coords):
             Post,
             func.coalesce(like_count, 0).label("like_count"),
             func.coalesce(comment_count, 0).label("comment_count"),
-            you_liked.label("you_liked")
+            you_liked.label("you_liked"),
+            func.ST_X(cast(Post.location, Geometry)).label("lon"),
+            func.ST_Y(cast(Post.location, Geometry)).label("lat")
         )
         .join(Post.author)
         .where(post_distance < 80467)
         .order_by(desc(score))
         .limit(25)
+        .options(defer(Post.location))
     )
     raw_posts = session.execute(posts_stmt).all()
 

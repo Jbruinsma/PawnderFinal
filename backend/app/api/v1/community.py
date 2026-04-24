@@ -8,7 +8,7 @@ from starlette import status
 
 from app.core.security import get_current_user
 from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts_with_stats, \
-    retrieve_post_likes, _get_post_stats_columns
+    retrieve_post_likes, get_post_stats_columns
 from app.database import get_db
 from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
 from app.schemas.common import Message
@@ -524,7 +524,7 @@ def get_user_posts(
         current_user: User = Depends(get_current_user)
 ):
     stmt = (
-        select(*_get_post_stats_columns(current_user.id))
+        select(*get_post_stats_columns(current_user.id))
         .join(Post.author)
         .where(Post.author_id == user_id)
         .order_by(desc(Post.created_at))
@@ -545,7 +545,7 @@ def get_user_bookmarks(
     from app.models.user import bookmarks as bookmarks_table
 
     stmt = (
-        select(*_get_post_stats_columns(current_user.id))
+        select(*get_post_stats_columns(current_user.id))
         .join(bookmarks_table, bookmarks_table.c.post_id == Post.id)
         .join(Post.author)
         .where(bookmarks_table.c.user_id == current_user.id)

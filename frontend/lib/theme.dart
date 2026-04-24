@@ -22,6 +22,10 @@ class AppThemeController {
 }
 
 class AppColors {
+  static const Color emerald = Color(0xFF0F9D58);
+  static const Color gold = Color(0xFFD4AF37);
+  static const Color platinum = Color(0xFFE5E4E2);
+
   static const Color seaBlue = Color(0xFF111315);
   static const Color powderBlue = Color(0xFFF2F5F6);
   static const Color shellBlue = Color(0xFFFAFBFC);
@@ -43,11 +47,26 @@ class AppColors {
 }
 
 class AppTheme {
+  static Decoration backgroundDecoration(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return BoxDecoration(
+      gradient: RadialGradient(
+        center: const Alignment(-0.8, -0.6),
+        radius: 1.5,
+        colors: isDark
+            ? const [Color(0xFF1E1E1E), Color(0xFF121212), Color(0xFF0A0A0A)]
+            : const [AppColors.platinum, Color(0xFFF5F5F5), Colors.white],
+        stops: const [0.0, 0.5, 1.0],
+      ),
+    );
+  }
+
   static ThemeData light() {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.seaBlue,
+      seedColor: AppColors.emerald,
       brightness: Brightness.light,
-      primary: AppColors.seaBlue,
+      primary: AppColors.emerald,
+      secondary: AppColors.gold,
       onPrimary: Colors.white,
       surface: Colors.white,
       onSurface: AppColors.ink,
@@ -64,7 +83,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.ink,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.platinum,
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
@@ -77,9 +96,10 @@ class AppTheme {
 
   static ThemeData dark() {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.darkText,
+      seedColor: AppColors.emerald,
       brightness: Brightness.dark,
-      primary: AppColors.darkText,
+      primary: AppColors.emerald,
+      secondary: AppColors.gold,
       onPrimary: AppColors.darkBackground,
       surface: AppColors.darkSurface,
       onSurface: AppColors.darkText,
@@ -114,51 +134,71 @@ class AppTheme {
 }
 
 class AppTextStyles {
-  static const TextStyle heroTitle = TextStyle(
-    fontSize: 48,
-    height: 1.05,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -0.2,
-    color: Colors.white,
-  );
+  static TextStyle heroTitle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextStyle(
+      fontSize: 48,
+      height: 1.05,
+      fontWeight: FontWeight.w900,
+      letterSpacing: -0.2,
+      color: isDark ? Colors.white : AppColors.ink,
+    );
+  }
 
-  static const TextStyle cardTitle = TextStyle(
-    fontSize: 40,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -0.3,
-    color: AppColors.seaBlue,
-  );
+  static TextStyle cardTitle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextStyle(
+      fontSize: 40,
+      fontWeight: FontWeight.w900,
+      letterSpacing: -0.3,
+      color: isDark ? AppColors.platinum : AppColors.seaBlue,
+    );
+  }
 
-  static const TextStyle helper = TextStyle(
-    fontSize: 12,
-    color: AppColors.bodyText,
-    fontWeight: FontWeight.w500,
-  );
+  static TextStyle helper(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextStyle(
+      fontSize: 12,
+      color: isDark ? AppColors.darkMuted : AppColors.bodyText,
+      fontWeight: FontWeight.w500,
+    );
+  }
 
-  static const TextStyle screenTitle = TextStyle(
-    fontSize: 32,
-    height: 1,
-    fontWeight: FontWeight.w900,
-    color: AppColors.seaBlue,
-  );
+  static TextStyle screenTitle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextStyle(
+      fontSize: 32,
+      height: 1,
+      fontWeight: FontWeight.w900,
+      color: isDark ? Colors.white : AppColors.seaBlue,
+    );
+  }
 
-  static const TextStyle screenSubtitle = TextStyle(
-    fontSize: 13,
-    color: Color(0xFF27313A),
-    fontWeight: FontWeight.w700,
-  );
+  static TextStyle screenSubtitle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextStyle(
+      fontSize: 13,
+      color: isDark ? const Color(0xFFB0B8C1) : const Color(0xFF27313A),
+      fontWeight: FontWeight.w700,
+    );
+  }
 
-  static const TextStyle button = TextStyle(
-    fontSize: 30,
-    fontWeight: FontWeight.w900,
-    color: Colors.white,
-  );
+  static TextStyle button(BuildContext context) {
+    return const TextStyle(
+      fontSize: 30,
+      fontWeight: FontWeight.w900,
+      color: Colors.white,
+    );
+  }
 
-  static const TextStyle field = TextStyle(
-    fontSize: 17,
-    color: AppColors.bodyText,
-    fontWeight: FontWeight.w600,
-  );
+  static TextStyle field(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextStyle(
+      fontSize: 17,
+      color: isDark ? AppColors.darkText : AppColors.bodyText,
+      fontWeight: FontWeight.w600,
+    );
+  }
 
   const AppTextStyles._();
 }

@@ -61,7 +61,7 @@ class HomeHeader extends StatelessWidget {
                 child: Text(
                   title,
                   maxLines: 1,
-                  style: AppTextStyles.screenTitle.copyWith(
+                  style: AppTextStyles.screenTitle(context).copyWith(
                     fontSize: 21,
                     height: 1.02,
                     fontWeight: FontWeight.w800,
@@ -74,7 +74,7 @@ class HomeHeader extends StatelessWidget {
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.screenSubtitle.copyWith(
+                style: AppTextStyles.screenSubtitle(context).copyWith(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.onSurfaceVariant,

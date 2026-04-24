@@ -43,13 +43,13 @@ class AuthInput extends StatelessWidget {
               obscureText: obscureText,
               keyboardType: keyboardType,
               textInputAction: textInputAction,
-              style: AppTextStyles.field.copyWith(
+              style: AppTextStyles.field(context).copyWith(
                 color: theme.colorScheme.onSurface,
               ),
               decoration: InputDecoration(
                 isDense: true,
                 hintText: hintText,
-                hintStyle: AppTextStyles.field.copyWith(
+                hintStyle: AppTextStyles.field(context).copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),

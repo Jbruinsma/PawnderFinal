@@ -47,30 +47,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     try {
-      await _authService.register(
-        fullName: fullName,
-        email: email,
-        password: password,
-      );
-
+      await _authService.register(fullName: fullName, email: email, password: password);
       if (!mounted) return;
-
       _showMessage('Account created successfully!');
       Navigator.pushReplacementNamed(context, LoginScreen.routeName);
     } catch (error) {
       if (!mounted) return;
       _showMessage(_authService.messageForError(error));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -82,8 +70,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return AuthScaffold(
       child: AuthCard(
         child: LayoutBuilder(
@@ -97,11 +83,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     const AuthBrandHeader(
                       title: 'Create your Pawnder account',
-                      subtitle:
-                          'Join your neighborhood pet network and start posting alerts.',
+                      subtitle: 'Join your neighborhood pet network and start posting alerts.',
                     ),
                     const SizedBox(height: 24),
-                    _buildLabel(theme, 'Full Name'),
+                    _buildLabel('Full Name'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _fullNameController,
@@ -109,7 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
-                    _buildLabel(theme, 'Email'),
+                    _buildLabel('Email'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _emailController,
@@ -119,7 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
-                    _buildLabel(theme, 'Password'),
+                    _buildLabel('Password'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _passwordController,
@@ -129,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
-                    _buildLabel(theme, 'Confirm Password'),
+                    _buildLabel('Confirm Password'),
                     const SizedBox(height: 8),
                     AuthInput(
                       controller: _confirmPasswordController,
@@ -143,13 +128,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: double.infinity,
                       height: 54,
                       child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF50C878),
+                          foregroundColor: const Color(0xFF121212),
+                        ),
                         onPressed: _isSubmitting ? null : _submitRegister,
                         child: _isSubmitting
-                            ? _buildLoadingIndicator(theme)
+                            ? _buildLoadingIndicator()
                             : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text('Continue'),
+                                  Text('Continue', style: TextStyle(fontWeight: FontWeight.w800)),
                                   SizedBox(width: 8),
                                   Icon(Icons.arrow_forward_rounded, size: 18),
                                 ],
@@ -158,20 +147,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 18),
                     TextButton(
-                      onPressed: () => Navigator.pushReplacementNamed(
-                        context,
-                        LoginScreen.routeName,
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      onPressed: () => Navigator.pushReplacementNamed(context, LoginScreen.routeName),
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFFE5E4E2)),
                       child: const Text(
                         'Already have an account? Log in',
                         maxLines: 1,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
@@ -184,25 +165,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildLabel(ThemeData theme, String label) {
+  Widget _buildLabel(String label) {
     return Text(
       label,
-      style: TextStyle(
-        color: theme.colorScheme.onSurface,
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-      ),
+      style: const TextStyle(color: Color(0xFFE5E4E2), fontSize: 13, fontWeight: FontWeight.w700),
     );
   }
 
-  Widget _buildLoadingIndicator(ThemeData theme) {
-    return SizedBox(
+  Widget _buildLoadingIndicator() {
+    return const SizedBox(
       width: 22,
       height: 22,
-      child: CircularProgressIndicator(
-        strokeWidth: 2.5,
-        color: theme.colorScheme.onPrimary,
-      ),
+      child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF121212)),
     );
   }
 }
