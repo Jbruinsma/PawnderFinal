@@ -23,9 +23,10 @@ class UserPostsScreen extends StatefulWidget {
 }
 
 class _UserPostsScreenState extends State<UserPostsScreen> {
-  List<Map<String, String>> _posts = [];
   bool _isLoading = true;
-  String? _error;
+  String _searchQuery = '';
+  String? _errorMessage;
+  List<CommunityPost> _posts = const [];
 
   @override
   void initState() {
@@ -34,22 +35,46 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     try {
-      final results = await widget.loadPosts();
-      if (mounted) {
-        setState(() => _posts = results.map((p) => p.toFeedMap()).toList());
+      final posts = await widget.loadPosts();
+      if (!mounted) {
+        return;
       }
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+
+      setState(() => _posts = posts);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = 'Could not load posts right now.';
+      });
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  Future<void> _openPost(CommunityPost post) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MissingPostDetailsScreen(post: post.toFeedMap()),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final postMaps = _posts.map((post) => post.toFeedMap()).toList();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -72,55 +97,125 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: theme.dividerColor),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        onChanged: (value) {
+                          setState(() => _searchQuery = value);
+                        },
+                        decoration: const InputDecoration(
+                          hintText: 'Search your posts...',
+                          border: InputBorder.none,
+                        ),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(_error!,
-                                    style: TextStyle(
-                                        color: theme.colorScheme.onSurfaceVariant)),
-                                const SizedBox(height: 12),
-                                FilledButton(
-                                  onPressed: _load,
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          )
-                        : _posts.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'Nothing here yet.',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              )
-                            : RefreshIndicator(
-                                onRefresh: _load,
-                                child: buildCommunityPostsFeed(
-                                  posts: _posts,
-                                  searchQuery: '',
-                                  onPostTap: (post) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            MissingPostDetailsScreen(post: post),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
+                    : _errorMessage != null
+                    ? _PostsNotice(
+                        message: _errorMessage!,
+                        actionLabel: 'Try again',
+                        onPressed: _load,
+                      )
+                    : _posts.isEmpty
+                    ? const _PostsNotice(
+                        message:
+                            'No listings yet. Create a post and it will show up here.',
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        child: buildCommunityPostsFeed(
+                          posts: postMaps,
+                          searchQuery: _searchQuery,
+                          onPostTap: (post) async {
+                            final selected = _posts.firstWhere(
+                              (item) => item.id == post['id'],
+                              orElse: () => _posts.first,
+                            );
+                            await _openPost(selected);
+                          },
+                        ),
+                      ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PostsNotice extends StatelessWidget {
+  final String message;
+  final String? actionLabel;
+  final Future<void> Function()? onPressed;
+
+  const _PostsNotice({required this.message, this.actionLabel, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: theme.dividerColor),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.list_alt_rounded,
+              size: 34,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (actionLabel != null && onPressed != null) ...[
+              const SizedBox(height: 14),
+              FilledButton.tonal(
+                onPressed: onPressed,
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
         ),
       ),
     );

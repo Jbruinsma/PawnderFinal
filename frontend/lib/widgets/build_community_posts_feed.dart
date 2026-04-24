@@ -6,6 +6,10 @@ Widget buildCommunityPostsFeed({
   required List<Map<String, String>> posts,
   required String searchQuery,
   required ValueChanged<Map<String, String>> onPostTap,
+  Future<void> Function(Map<String, String> post)? onCommentTap,
+  Future<void> Function(Map<String, String> post)? onLikeTap,
+  Future<void> Function(Map<String, String> post)? onDeleteTap,
+  String? currentUserId,
 }) {
   final query = searchQuery.trim().toLowerCase();
 
@@ -40,216 +44,238 @@ Widget buildCommunityPostsFeed({
     );
   }
 
-  final recentPosts = visiblePosts
-      .where((post) => post['section'] == 'recent')
-      .toList();
-  final foundPosts = visiblePosts
-      .where((post) => post['section'] == 'found')
-      .toList();
-
-  return ListView(
+  return ListView.separated(
     padding: const EdgeInsets.only(bottom: 92),
-    children: [
-      if (recentPosts.isNotEmpty)
-        _PostSection(
-          title: 'Recent Posts',
-          posts: recentPosts,
-          onPostTap: onPostTap,
-        ),
-      if (foundPosts.isNotEmpty) ...[
-        const SizedBox(height: 24),
-        _PostSection(
-          title: 'Found Pets',
-          posts: foundPosts,
-          onPostTap: onPostTap,
-        ),
-      ],
-    ],
+    itemCount: visiblePosts.length,
+    separatorBuilder: (context, index) => const SizedBox(height: 14),
+    itemBuilder: (context, index) {
+      final post = visiblePosts[index];
+      final isAuthor =
+          currentUserId != null && post['authorId'] == currentUserId;
+      return _StackedPostCard(
+        post: post,
+        onTap: () => onPostTap(post),
+        onCommentTap: onCommentTap == null ? null : () => onCommentTap(post),
+        onLikeTap: onLikeTap == null ? null : () => onLikeTap(post),
+        onDeleteTap: (onDeleteTap == null || !isAuthor)
+            ? null
+            : () => onDeleteTap(post),
+      );
+    },
   );
 }
 
-class _PostSection extends StatelessWidget {
-  final String title;
-  final List<Map<String, String>> posts;
-  final ValueChanged<Map<String, String>> onPostTap;
-
-  const _PostSection({
-    required this.title,
-    required this.posts,
-    required this.onPostTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final useWideCardsLayout = posts.length <= 2;
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 24,
-            height: 1,
-            fontWeight: FontWeight.w900,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 10),
-        if (useWideCardsLayout)
-          Row(
-            children: [
-              for (var i = 0; i < posts.length; i++) ...[
-                Expanded(
-                  child: _PostCard(
-                    post: posts[i],
-                    onTap: () => onPostTap(posts[i]),
-                    useWideLayout: true,
-                  ),
-                ),
-                if (i < posts.length - 1) const SizedBox(width: 14),
-              ],
-            ],
-          )
-        else
-          SizedBox(
-            height: 258,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: posts.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 14),
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                return _PostCard(
-                  post: post,
-                  onTap: () => onPostTap(post),
-                  useWideLayout: false,
-                );
-              },
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _PostCard extends StatelessWidget {
+class _StackedPostCard extends StatelessWidget {
   final Map<String, String> post;
   final VoidCallback onTap;
-  final bool useWideLayout;
+  final VoidCallback? onCommentTap;
+  final VoidCallback? onLikeTap;
+  final VoidCallback? onDeleteTap;
 
-  const _PostCard({
+  const _StackedPostCard({
     required this.post,
     required this.onTap,
-    required this.useWideLayout,
+    this.onCommentTap,
+    this.onLikeTap,
+    this.onDeleteTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final youLiked = post['youLiked'] == 'true';
     final tags = (post['tags'] ?? '')
         .split('|')
         .where((tag) => tag.trim().isNotEmpty)
         .toList();
 
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(20),
       onTap: onTap,
-      child: SizedBox(
-        width: useWideLayout ? null : 184,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkBackground : theme.cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.dividerColor),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 1.18,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkBackground : theme.cardColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  clipBehavior: Clip.hardEdge,
-                  child: Stack(
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+              child: Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1.55,
+                    child: PetImage(
+                      image: post['image'],
+                      height: double.infinity,
+                      width: double.infinity,
+                      preserveSubject: true,
+                      seed: post['id'] ?? post['title'] ?? '',
+                    ),
+                  ),
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    child: _StatusBadge(
+                      label: (post['section'] ?? '') == 'found'
+                          ? 'Found'
+                          : 'Lost',
+                    ),
+                  ),
+                  Positioned(
+                    right: 12,
+                    top: 12,
+                    child: Row(
+                      children: [
+                        if (onDeleteTap != null) ...[
+                          _RoundCardAction(
+                            icon: Icons.delete_outline_rounded,
+                            iconColor: Colors.redAccent,
+                            onTap: onDeleteTap,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        _RoundCardAction(
+                          icon: youLiked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          iconColor: youLiked
+                              ? Colors.redAccent
+                              : theme.colorScheme.onSurface,
+                          onTap: onLikeTap,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    (post['section'] ?? '') == 'found'
+                        ? 'Found nearby'
+                        : 'Missing pet',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    post['title'] ?? 'Missing pet post',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 19,
+                      height: 1.15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    post['description'] ?? '',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 14,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: tags
+                        .take(3)
+                        .map((tag) => _TagChip(tag: tag))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Posted ${post['posted'] ?? 'March 10th, 2026'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      Positioned(
-                        left: -3,
-                        top: -3,
-                        right: -3,
-                        bottom: -3,
-                        child: PetImage(
-                          image: post['image'],
-                          height: double.infinity,
-                          width: double.infinity,
-                          preserveSubject: true,
-                          seed: post['id'] ?? post['title'] ?? '',
-                        ),
+                      _InlineMeta(
+                        icon: Icons.mode_comment_outlined,
+                        label: '${post['commentCount'] ?? '0'} comments',
                       ),
-                      Positioned(
-                        left: 8,
-                        top: 8,
-                        child: _StatusBadge(
-                          label: (post['section'] ?? '') == 'found'
-                              ? 'Found'
-                              : 'Lost',
-                        ),
+                      const SizedBox(width: 12),
+                      _InlineMeta(
+                        icon: youLiked
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        label: '${post['likeCount'] ?? '0'} likes',
+                        iconColor: youLiked ? Colors.redAccent : null,
                       ),
-                      const Positioned(
-                        right: 8,
-                        top: 8,
-                        child: _RoundCardAction(
-                          icon: Icons.favorite_border_rounded,
-                        ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: onCommentTap,
+                        icon: const Icon(Icons.chat_bubble_outline_rounded),
+                        label: const Text('Comment'),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              (post['section'] ?? '') == 'found'
-                  ? 'Found nearby'
-                  : 'Missing pet',
-              style: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              post['title'] ?? 'Missing pet post',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontSize: 17,
-                height: 1.12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: tags.take(2).map((tag) => _TagChip(tag: tag)).toList(),
-            ),
-            Text(
-              'Posted ${post['posted'] ?? 'March 10th, 2026'}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _InlineMeta extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? iconColor;
+
+  const _InlineMeta({required this.icon, required this.label, this.iconColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: iconColor ?? theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -286,24 +312,37 @@ class _StatusBadge extends StatelessWidget {
 
 class _RoundCardAction extends StatelessWidget {
   final IconData icon;
+  final Color? iconColor;
+  final VoidCallback? onTap;
 
-  const _RoundCardAction({required this.icon});
+  const _RoundCardAction({required this.icon, this.iconColor, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.black.withValues(alpha: 0.72)
-            : Colors.white.withValues(alpha: 0.94),
-        shape: BoxShape.circle,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Ink(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.72)
+                : Colors.white.withValues(alpha: 0.94),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: iconColor ?? theme.colorScheme.onSurface,
+            size: 19,
+          ),
+        ),
       ),
-      child: Icon(icon, color: theme.colorScheme.onSurface, size: 19),
     );
   }
 }
