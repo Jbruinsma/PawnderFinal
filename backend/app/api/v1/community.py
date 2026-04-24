@@ -443,6 +443,7 @@ def delete_post(
 )
 def get_post(
         post_id: UUID,
+        current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ) -> Optional[CommunityPost]:
     """
@@ -453,16 +454,16 @@ def get_post(
     """
 
     stmt = (
-        select(Post)
+        select(*get_post_stats_columns(current_user.id))
         .join(Post.author)
         .where(Post.id == post_id)
-        .order_by(desc(Post.created_at))
     )
 
-    post = session.execute(stmt).scalars().first()
-    if not post: return None
+    row = session.execute(stmt).first()
+    if not row:
+        return None
 
-    return format_post_with_stats(post)
+    return format_post_with_stats(row)
 
 
 @router.post(
