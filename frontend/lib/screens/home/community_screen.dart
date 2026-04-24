@@ -9,7 +9,7 @@ class CommunityScreen extends StatefulWidget {
   final List<Map<String, String>> posts;
   final bool isLoading;
   final ValueChanged<Map<String, String>> onPostTap;
-  final VoidCallback onAddListingTap;
+  final VoidCallback onCreateCommunityTap;
   final ValueChanged<Community> onCommunityTap;
   final Future<void> Function()? onRefresh;
 
@@ -20,7 +20,7 @@ class CommunityScreen extends StatefulWidget {
     required this.posts,
     this.isLoading = false,
     required this.onPostTap,
-    required this.onAddListingTap,
+    required this.onCreateCommunityTap,
     required this.onCommunityTap,
     this.onRefresh,
   });
@@ -210,28 +210,17 @@ class _CommunityScreenState extends State<CommunityScreen> {
             padding: const EdgeInsets.only(bottom: 12),
             child: Align(
               alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: widget.onAddListingTap,
+              child: IconButton.filled(
+                onPressed: widget.onCreateCommunityTap,
                 style: FilledButton.styleFrom(
-                  backgroundColor: theme.cardColor,
-                  foregroundColor: theme.colorScheme.onSurface,
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
                   elevation: theme.brightness == Brightness.dark ? 0 : 2,
                   shadowColor: const Color(0x18000000),
-                  side: BorderSide(color: theme.dividerColor),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.all(14),
                 ),
-                child: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Add listing here +',
-                    maxLines: 1,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                  ),
-                ),
+                icon: const Icon(Icons.add_rounded, size: 26),
+                tooltip: 'Create community',
               ),
             ),
           ),

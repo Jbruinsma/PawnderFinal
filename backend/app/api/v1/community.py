@@ -5,6 +5,8 @@ from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy import func, select, and_, Row, desc, union_all, delete
 from sqlalchemy.orm import Session
 from starlette import status
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Polygon
 
 from app.core.security import get_current_user
 from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts_with_stats, \
@@ -12,7 +14,7 @@ from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_
 from app.database import get_db
 from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
 from app.schemas.common import Message
-from app.schemas.community import NeighborhoodResponseModel, Neighborhood
+from app.schemas.community import NeighborhoodResponseModel, Neighborhood, CommunityCreateRequest, CommunityCreateResponse
 from app.schemas.core import CoordinateSchema
 from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
     ExistingTag
@@ -27,6 +29,16 @@ router = APIRouter(
     prefix="/community",
     tags=["5.0 Community Hub & Tagging"]
 )
+
+
+def _build_square_boundary(latitude: float, longitude: float, half_side_degrees: float = 0.01):
+    return Polygon([
+        (longitude - half_side_degrees, latitude - half_side_degrees),
+        (longitude + half_side_degrees, latitude - half_side_degrees),
+        (longitude + half_side_degrees, latitude + half_side_degrees),
+        (longitude - half_side_degrees, latitude + half_side_degrees),
+        (longitude - half_side_degrees, latitude - half_side_degrees),
+    ])
 
 
 @router.get(
@@ -94,6 +106,51 @@ def get_neighborhoods(
     )
 
 
+@router.post(
+    path="/neighborhoods",
+    summary="Create a neighborhood",
+    response_model=CommunityCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_neighborhood(
+        payload: CommunityCreateRequest,
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(get_db)
+):
+    existing = session.execute(
+        select(Community.id).where(func.lower(Community.name) == payload.name.strip().lower())
+    ).scalar()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A community with this name already exists."
+        )
+
+    community = Community(
+        name=payload.name.strip(),
+        description=payload.description.strip(),
+        geofence_boundary=from_shape(
+            _build_square_boundary(payload.latitude, payload.longitude),
+            srid=4326,
+        )
+    )
+
+    session.add(community)
+    current_user.joined_communities.append(community)
+    session.commit()
+    session.refresh(community)
+
+    return CommunityCreateResponse(
+        message=f"Created {community.name}",
+        community=Neighborhood(
+            id=str(community.id),
+            name=community.name,
+            description=community.description or "",
+        )
+    )
+
+
 @router.post("/neighborhoods/{community_id}/join", summary="Join a neighborhood")
 def join_neighborhood(
         community_id: UUID,
@@ -158,6 +215,35 @@ def join_neighborhood(
 
     return Message(
         message= f"Successfully joined {community.name}"
+    )
+
+
+@router.get(
+    path="/my-neighborhoods",
+    summary="List the current user's saved neighborhoods",
+    response_model=NeighborhoodResponseModel,
+)
+def get_my_neighborhoods(
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(get_db)
+):
+    user = (
+        session.query(User)
+        .filter(User.id == current_user.id)
+        .first()
+    )
+
+    communities = user.joined_communities if user else []
+
+    return NeighborhoodResponseModel(
+        neighborhoods=[
+            Neighborhood(
+                id=str(community.id),
+                name=community.name,
+                description=community.description or "",
+            )
+            for community in communities
+        ]
     )
 
 
