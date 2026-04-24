@@ -135,9 +135,9 @@ class PostService {
         .toList();
   }
 
-  Future<List<CommunityPost>> getUserBookmarks({required String userId}) async {
+  Future<List<CommunityPost>> getUserBookmarks({String? userId}) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '/community/users/$userId/bookmarks',
+      '/community/bookmarks',
     );
     final posts = response.data?['posts'] as List<dynamic>? ?? const [];
     return posts
@@ -147,20 +147,17 @@ class PostService {
 
   Future<void> bookmarkPost({
     required String postId,
-    required String userId,
+    String? userId,
   }) async {
-    await _apiClient.post<void>(
-      '/community/posts/$postId/bookmark',
-      data: {'user_id': userId},
-    );
+    await _apiClient.post<void>('/community/posts/$postId/bookmark');
   }
 
   Future<bool> isPostBookmarked({
     required String postId,
-    required String userId,
+    String? userId,
   }) async {
     try {
-      final bookmarks = await getUserBookmarks(userId: userId);
+      final bookmarks = await getUserBookmarks();
       return bookmarks.any((post) => post.id == postId);
     } catch (_) {
       return false;
@@ -169,11 +166,8 @@ class PostService {
 
   Future<void> removeBookmark({
     required String postId,
-    required String userId,
+    String? userId,
   }) async {
-    await _apiClient.delete<void>(
-      '/community/posts/$postId/bookmark',
-      data: {'user_id': userId},
-    );
+    await _apiClient.delete<void>('/community/posts/$postId/bookmark');
   }
 }

@@ -12,7 +12,7 @@ from app.core.security import get_current_user
 from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts_with_stats, \
     retrieve_post_likes, get_post_stats_columns
 from app.database import get_db
-from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
+from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments, CommentLikes
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood, CommunityCreateRequest, CommunityCreateResponse
 from app.schemas.core import CoordinateSchema
@@ -20,7 +20,7 @@ from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreation
     ExistingTag
 from app.schemas.post import (
     PostBookmarkResponseModel, PostLikeResponseModel, PostUnlikeResponseModel,
-    CommunityPostCommentRequest, PostComment
+    CommunityPostCommentRequest, PostComment, PostCommentsResponse
 )
 from app.services.feed_engine import generate_algorithmic_feed
 from app.utils.formatting_utils import format_post_with_stats
@@ -348,8 +348,11 @@ def create_post(
 @router.delete("/posts/{post_id}", summary="Delete a post")
 def delete_post(
     post_id: UUID,
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    from app.models.user import bookmarks as bookmarks_table
+
     post = session.execute(
         select(Post).where(Post.id == post_id)
     ).scalars().first()
@@ -357,6 +360,23 @@ def delete_post(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own posts")
+
+    comment_ids = [
+        row[0] for row in session.execute(
+            select(PostComments.id).where(PostComments.post_id == post_id)
+        ).all()
+    ]
+    if comment_ids:
+        session.execute(
+            delete(CommentLikes).where(CommentLikes.comment_id.in_(comment_ids))
+        )
+    session.execute(delete(PostComments).where(PostComments.post_id == post_id))
+    session.execute(delete(PostLikes).where(PostLikes.post_id == post_id))
+    session.execute(
+        bookmarks_table.delete().where(bookmarks_table.c.post_id == post_id)
+    )
     session.delete(post)
     session.commit()
     return {"status": "success", "message": "Post deleted"}
@@ -464,9 +484,6 @@ def bookmark_post(
     if result is None:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    if not result:
-        raise HTTPException(status_code=409, detail="Post already bookmarked")
-
     return PostBookmarkResponseModel(
         message= "Post bookmarked"
     )
@@ -521,16 +538,10 @@ async def like_post(
 
     if not post_exists:
         raise HTTPException(status_code=404, detail="Post not found")
-    if like_exists:
-        raise HTTPException(status_code=400, detail="You have already liked this post")
 
-    new_like = PostLikes(
-        post_id= post_id,
-        user_id= current_user.id
-    )
-
-    session.add(new_like)
-    session.commit()
+    if not like_exists:
+        session.add(PostLikes(post_id=post_id, user_id=current_user.id))
+        session.commit()
 
     return PostLikeResponseModel(
         message= "Post liked successfully",
@@ -551,16 +562,12 @@ async def unlike_post(
         session: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    stmt = (
-        delete(PostLikes)
-        .where(PostLikes.post_id == post_id, PostLikes.user_id == current_user.id)
+    session.execute(
+        delete(PostLikes).where(
+            PostLikes.post_id == post_id,
+            PostLikes.user_id == current_user.id,
+        )
     )
-
-    result = session.execute(stmt)
-
-    if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Like not found")
-
     session.commit()
 
     return PostUnlikeResponseModel(
@@ -615,12 +622,153 @@ async def add_comment(
     session.refresh(new_comment)
 
     return PostComment(
+        comment_id= new_comment.id,
         post_id= post_id,
         user_id= current_user.id,
+        author_name= current_user.full_name,
         replying_to_id= new_comment_request.replying_to_id,
         content= new_comment_request.content,
         created_at= new_comment.created_at.isoformat(),
+        like_count= 0,
         you_liked= False
+    )
+
+
+@router.get(
+    path="/posts/{post_id}/comments",
+    summary="List comments for a post",
+    response_model=PostCommentsResponse
+)
+async def get_comments(
+        post_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    post_exists = session.execute(
+        select(Post.id).where(Post.id == post_id)
+    ).scalar()
+    if not post_exists:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    like_count_sub = (
+        select(func.count(CommentLikes.id))
+        .where(CommentLikes.comment_id == PostComments.id)
+        .correlate(PostComments)
+        .scalar_subquery()
+    )
+    you_liked_sub = (
+        select(CommentLikes.id)
+        .where(
+            and_(
+                CommentLikes.comment_id == PostComments.id,
+                CommentLikes.user_id == current_user.id,
+            )
+        )
+        .correlate(PostComments)
+        .exists()
+    )
+
+    stmt = (
+        select(
+            PostComments,
+            func.coalesce(like_count_sub, 0).label("like_count"),
+            you_liked_sub.label("you_liked"),
+            User.full_name.label("author_name"),
+        )
+        .join(User, User.id == PostComments.user_id)
+        .where(PostComments.post_id == post_id)
+        .order_by(PostComments.created_at.asc())
+    )
+
+    rows = session.execute(stmt).all()
+
+    return PostCommentsResponse(
+        comments=[
+            PostComment(
+                comment_id=row.PostComments.id,
+                post_id=row.PostComments.post_id,
+                user_id=row.PostComments.user_id,
+                author_name=row.author_name or "Member",
+                replying_to_id=row.PostComments.replying_to_id,
+                content=row.PostComments.content,
+                created_at=row.PostComments.created_at.isoformat(),
+                like_count=row.like_count,
+                you_liked=row.you_liked,
+            )
+            for row in rows
+        ]
+    )
+
+
+@router.post(
+    path="/posts/{post_id}/comments/{comment_id}/like",
+    summary="Like a comment",
+    response_model=PostLikeResponseModel,
+)
+async def like_comment(
+        post_id: UUID,
+        comment_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    comment = session.execute(
+        select(PostComments).where(
+            PostComments.id == comment_id,
+            PostComments.post_id == post_id,
+        )
+    ).scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    existing = session.execute(
+        select(CommentLikes.id).where(
+            CommentLikes.comment_id == comment_id,
+            CommentLikes.user_id == current_user.id,
+        )
+    ).scalar()
+
+    if not existing:
+        session.add(CommentLikes(comment_id=comment_id, user_id=current_user.id))
+        session.commit()
+
+    new_count = session.execute(
+        select(func.count(CommentLikes.id)).where(CommentLikes.comment_id == comment_id)
+    ).scalar() or 0
+
+    return PostLikeResponseModel(
+        message="Comment liked",
+        post_id=post_id,
+        new_like_count=new_count,
+    )
+
+
+@router.delete(
+    path="/posts/{post_id}/comments/{comment_id}/like",
+    summary="Unlike a comment",
+    response_model=PostUnlikeResponseModel,
+)
+async def unlike_comment(
+        post_id: UUID,
+        comment_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    session.execute(
+        delete(CommentLikes).where(
+            CommentLikes.comment_id == comment_id,
+            CommentLikes.user_id == current_user.id,
+        )
+    )
+    session.commit()
+
+    new_count = session.execute(
+        select(func.count(CommentLikes.id)).where(CommentLikes.comment_id == comment_id)
+    ).scalar() or 0
+
+    return PostUnlikeResponseModel(
+        message="Comment unliked",
+        post_id=post_id,
+        new_like_count=new_count,
     )
 
 

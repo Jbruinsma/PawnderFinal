@@ -94,9 +94,16 @@ class PostUnlikeResponseModel(PostLikeResponseModel):
 
 
 class PostComment(BaseModel):
+    comment_id: UUID
     post_id: UUID
     user_id: UUID
+    author_name: str = ""
     replying_to_id: Optional[UUID] = None
     content: str
     created_at: str
+    like_count: int = 0
     you_liked: bool = False
+
+
+class PostCommentsResponse(BaseModel):
+    comments: List[PostComment]
