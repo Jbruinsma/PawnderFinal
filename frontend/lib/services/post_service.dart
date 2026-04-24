@@ -73,6 +73,10 @@ class PostService {
         .toList();
   }
 
+  Future<void> deletePost({required String postId}) async {
+    await _apiClient.delete<void>('/community/posts/$postId');
+  }
+
   Future<String> createPost(CreatePostRequest request) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/community/posts',

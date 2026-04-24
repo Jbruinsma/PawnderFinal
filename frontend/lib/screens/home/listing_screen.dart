@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/services/api_client.dart';
+import 'package:pawnder_app/services/location_service.dart';
 import 'package:pawnder_app/services/post_service.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
 
@@ -22,9 +23,10 @@ class _ListingScreenState extends State<ListingScreen> {
   final _descriptionController = TextEditingController();
   final _postService = PostService();
   final _apiClient = ApiClient();
+  final _locationService = LocationService();
   final ImagePicker _imagePicker = ImagePicker();
 
-  final List<String> _selectedTags = ['FoundPet', 'Queens'];
+  final List<String> _selectedTags = [];
   XFile? _selectedImage;
   bool _isSubmitting = false;
 
@@ -89,6 +91,17 @@ class _ListingScreenState extends State<ListingScreen> {
       _isSubmitting = true;
     });
 
+    PostLocation location = const PostLocation(
+      latitude: _defaultLatitude,
+      longitude: _defaultLongitude,
+    );
+    try {
+      final current = await _locationService.requestAndSaveCurrentLocation();
+      if (current != null) {
+        location = current;
+      }
+    } catch (_) {}
+
     try {
       await _postService.createPost(
         CreatePostRequest(
@@ -97,10 +110,7 @@ class _ListingScreenState extends State<ListingScreen> {
           postType: _selectedTags.contains('LostPet') ? 'Lost Pet' : 'Sighting',
           title: title,
           description: description,
-          location: const PostLocation(
-            latitude: _defaultLatitude,
-            longitude: _defaultLongitude,
-          ),
+          location: location,
           tags: _selectedTags,
         ),
       );
