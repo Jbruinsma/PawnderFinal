@@ -47,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   CurrentUser? _currentUser;
   String? _selectedCommunityName;
   List<Community> _nearbyCommunities = const [];
+  Set<String> _joinedCommunityIds = const {};
   bool _isLoadingCommunityPosts = false;
   bool _shouldShowFallbackPets = true;
 
@@ -165,6 +166,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _nearbyCommunities = mergedCommunities;
+        _joinedCommunityIds = savedCommunities
+            .map((community) => community.id)
+            .toSet();
         _selectedCommunityName = defaultCommunity?.name;
         _nearbyPets = posts.map((post) => post.toPetMap()).toList();
         _shouldShowFallbackPets = _nearbyPets.isEmpty;
@@ -173,22 +177,90 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool> _confirmJoinCommunity(Community community) async {
+    final theme = Theme.of(context);
+
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.groups_2_outlined, color: theme.colorScheme.primary),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Join community?',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'Would you like to join ${community.name} before opening it? You will start seeing its activity as one of your communities.',
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Not now'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Join'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Future<void> _handleCommunityTap(Community community) async {
     final selectedCommunityId = community.id;
     if (!mounted) return;
 
     if (_currentUser != null) {
-      try {
-        await _communityService.joinNeighborhood(
-          communityId: selectedCommunityId,
-        );
-        if (mounted) {
-          setState(() => _selectedCommunityName = community.name);
+      final isAlreadyJoined = _joinedCommunityIds.contains(selectedCommunityId);
+
+      if (!isAlreadyJoined) {
+        final shouldJoin = await _confirmJoinCommunity(community);
+        if (!shouldJoin || !mounted) {
+          return;
         }
-      } catch (_) {
-        if (mounted) {
-          setState(() => _selectedCommunityName = community.name);
+
+        try {
+          await _communityService.joinNeighborhood(
+            communityId: selectedCommunityId,
+          );
+          if (mounted) {
+            setState(() {
+              _joinedCommunityIds = {
+                ..._joinedCommunityIds,
+                selectedCommunityId,
+              };
+            });
+          }
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not join this community right now.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
         }
+      }
+
+      if (mounted) {
+        setState(() => _selectedCommunityName = community.name);
       }
     } else if (mounted) {
       setState(() => _selectedCommunityName = community.name);
@@ -289,6 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
         createdCommunity,
         ..._nearbyCommunities.where((c) => c.id != createdCommunity.id),
       ];
+      _joinedCommunityIds = {..._joinedCommunityIds, createdCommunity.id};
       _selectedCommunityName = createdCommunity.name;
     });
 

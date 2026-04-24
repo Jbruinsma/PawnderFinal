@@ -7,6 +7,8 @@ class Neighborhood(BaseModel):
     id: str
     name: str
     description: str
+    post_count: int = 0
+    member_count: int = 0
 
 
 class NeighborhoodResponseModel(BaseModel):

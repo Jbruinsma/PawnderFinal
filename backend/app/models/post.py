@@ -25,8 +25,6 @@ class Post(Base):
 
     status: Mapped[str] = mapped_column(String, default="Active")
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at = mapped_column(DateTime(timezone=True), onupdate=func.now())
-
     author = relationship("User", back_populates="posts")
     community = relationship("Community")
     tags = relationship("Tag", secondary=post_tags)
@@ -64,8 +62,6 @@ class PostComments(Base):
 
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at = mapped_column(DateTime(timezone=True), onupdate=func.now())
-
     post = relationship("Post", back_populates="comments")
     user = relationship("User")
     replies = relationship("PostComments")
