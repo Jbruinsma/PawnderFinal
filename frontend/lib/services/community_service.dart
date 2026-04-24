@@ -24,13 +24,9 @@ class CommunityService {
         .toList();
   }
 
-  Future<void> joinNeighborhood({
-    required String communityId,
-    required String currentUserId,
-  }) async {
+  Future<void> joinNeighborhood({required String communityId}) async {
     await _apiClient.dio.post<void>(
       '/api/v1/community/neighborhoods/$communityId/join',
-      queryParameters: {'current_user_id': currentUserId},
     );
   }
 }
