@@ -29,25 +29,3 @@ def format_post_with_stats(row) -> CommunityPost:
         comment_count=comment_count,
         you_liked=you_liked
     )
-
-def format_plain_post(post) -> CommunityPost:
-    return CommunityPost(
-        post_id=post.id,
-        author_id=post.author_id,
-        author_username=post.author.full_name,
-        community_id=post.community_id,
-        post_type=post.post_type,
-        title=post.title,
-        description=post.description,
-        image_url=post.image_url,
-        tags=[tag.name for tag in post.tags],
-        status=post.status,
-        created_at=post.created_at,
-        location=PostLocation(
-            longitude=to_shape(post.location).x,
-            latitude=to_shape(post.location).y
-        ),
-        like_count=0,
-        comment_count=0,
-        you_liked=False
-    )

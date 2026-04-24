@@ -1,4 +1,4 @@
-from typing import Annotated, Optional, Any
+from typing import Optional, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Depends, HTTPException
@@ -7,21 +7,21 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from app.core.security import get_current_user
-from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts, \
-    retrieve_posts_with_stats, retrieve_post_likes, _get_post_stats_columns
+from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts_with_stats, \
+    retrieve_post_likes, _get_post_stats_columns
 from app.database import get_db
 from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood
 from app.schemas.core import CoordinateSchema
-from app.schemas.post import (
-    BookmarkRequest, PostBookmarkResponseModel, PostLikeResponseModel, PostUnlikeResponseModel,
-    CommunityPostCommentRequest, PostComment
-)
 from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
     ExistingTag
+from app.schemas.post import (
+    PostBookmarkResponseModel, PostLikeResponseModel, PostUnlikeResponseModel,
+    CommunityPostCommentRequest, PostComment
+)
 from app.services.feed_engine import generate_algorithmic_feed
-from app.utils.formatting_utils import format_post_with_stats, format_plain_post
+from app.utils.formatting_utils import format_post_with_stats
 
 router = APIRouter(
     prefix="/community",
