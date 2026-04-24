@@ -45,6 +45,14 @@ class CommunityPost {
   final PostLocation location;
   final List<String> tags;
 
+  String get formattedCreatedAt {
+    final local = createdAt.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final year = local.year.toString();
+    return '$month/$day/$year';
+  }
+
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
     final rawLocation = json['location'] as Map<String, dynamic>;
 
@@ -79,7 +87,7 @@ class CommunityPost {
       'authorId': authorId,
       'author': authorName ?? 'Community member',
       'location': '${location.latitude}, ${location.longitude}',
-      'posted': createdAt.toLocal().toString(),
+      'posted': formattedCreatedAt,
       'tags': tags.join('|'),
       'image': imageUrl ?? 'mock://community-post/$title-${tags.join('-')}-$id',
       'description': description,
@@ -110,7 +118,7 @@ class CommunityPost {
       'location': '${location.latitude}, ${location.longitude}',
       'about': description,
       'ownerName': authorName ?? 'Community member',
-      'ownerMeta': 'Posted ${createdAt.toLocal()}',
+      'ownerMeta': 'Posted $formattedCreatedAt',
       'breed': tags.isEmpty ? 'Unknown' : tags.first,
       'age': 'Not listed',
       'weight': 'Not listed',
