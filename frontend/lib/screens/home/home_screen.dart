@@ -280,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => CommunityPostsScreen(
           title: community.name,
           posts: communityPosts,
+          communityId: selectedCommunityId,
           onPostTap: (post) => Navigator.push(
             context,
             MaterialPageRoute(

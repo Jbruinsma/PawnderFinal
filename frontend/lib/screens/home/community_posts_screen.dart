@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/services/auth_service.dart';
@@ -9,8 +11,10 @@ import 'package:pawnder_app/widgets/build_header.dart';
 class CommunityPostsScreen extends StatefulWidget {
   final String title;
   final List<CommunityPost> posts;
+  final String? communityId;
   final ValueChanged<CommunityPost> onPostTap;
   final VoidCallback onAddListingTap;
+  final ValueChanged<String>? onPostDelete;
 
   const CommunityPostsScreen({
     super.key,
@@ -18,6 +22,8 @@ class CommunityPostsScreen extends StatefulWidget {
     required this.posts,
     required this.onPostTap,
     required this.onAddListingTap,
+    this.communityId,
+    this.onPostDelete,
   });
 
   @override
@@ -28,8 +34,11 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
   String _searchQuery = '';
   final _postService = PostService();
   final _apiClient = ApiClient();
+  final _authService = AuthService();
   late List<CommunityPost> _posts;
   final Map<String, List<PostComment>> _commentsByPostId = {};
+  Timer? _pollTimer;
+  String? _currentUserId;
 
   @override
   void initState() {
@@ -37,6 +46,86 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
     _posts = List<CommunityPost>.from(widget.posts);
     for (final post in _posts) {
       _commentsByPostId[post.id] = List<PostComment>.from(post.comments);
+    }
+    _loadCurrentUserId();
+    if (widget.communityId != null) {
+      _pollTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _refreshPosts(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    try {
+      final user = await _authService.getCurrentUser();
+      if (!mounted) return;
+      setState(() => _currentUserId = user.id);
+    } catch (_) {}
+  }
+
+  Future<void> _refreshPosts() async {
+    final communityId = widget.communityId;
+    if (communityId == null) return;
+    try {
+      final fresh = await _postService.getCommunityPosts(
+        communityId: communityId,
+        limit: 50,
+      );
+      if (!mounted) return;
+      setState(() {
+        _posts = fresh;
+        for (final post in _posts) {
+          _commentsByPostId.putIfAbsent(
+            post.id,
+            () => List<PostComment>.from(post.comments),
+          );
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _confirmDeletePost(CommunityPost post) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete listing?'),
+        content: const Text('This listing will be removed for everyone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _postService.deletePost(postId: post.id);
+      if (!mounted) return;
+      setState(() {
+        _posts = _posts.where((p) => p.id != post.id).toList();
+      });
+      widget.onPostDelete?.call(post.id);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_apiClient.messageForError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -193,6 +282,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                 child: buildCommunityPostsFeed(
                   posts: postMaps,
                   searchQuery: _searchQuery,
+                  currentUserId: _currentUserId,
                   onPostTap: (postMap) {
                     final postId = postMap['id'];
                     if (postId == null) {
@@ -207,6 +297,15 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                   },
                   onCommentTap: _openCommentsSheet,
                   onLikeTap: _togglePostLike,
+                  onDeleteTap: (postMap) async {
+                    final postId = postMap['id'];
+                    if (postId == null) return;
+                    final index = _posts.indexWhere(
+                      (item) => item.id == postId,
+                    );
+                    if (index == -1) return;
+                    await _confirmDeletePost(_posts[index]);
+                  },
                 ),
               ),
               Padding(
@@ -281,6 +380,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   String? _errorMessage;
   String? _currentUserId;
   List<PostComment> _comments = const [];
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -288,12 +388,29 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     _comments = List<PostComment>.from(widget.initialComments);
     _loadCurrentUser();
     _loadComments();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _pollComments(),
+    );
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _pollComments() async {
+    if (_isSubmitting) return;
+    try {
+      final comments = await widget.postService.getPostComments(
+        postId: widget.postId,
+      );
+      if (!mounted) return;
+      setState(() => _comments = comments);
+      widget.onCommentsLoaded(comments);
+    } catch (_) {}
   }
 
   Future<void> _loadCurrentUser() async {

@@ -8,6 +8,8 @@ Widget buildCommunityPostsFeed({
   required ValueChanged<Map<String, String>> onPostTap,
   Future<void> Function(Map<String, String> post)? onCommentTap,
   Future<void> Function(Map<String, String> post)? onLikeTap,
+  Future<void> Function(Map<String, String> post)? onDeleteTap,
+  String? currentUserId,
 }) {
   final query = searchQuery.trim().toLowerCase();
 
@@ -48,11 +50,16 @@ Widget buildCommunityPostsFeed({
     separatorBuilder: (context, index) => const SizedBox(height: 14),
     itemBuilder: (context, index) {
       final post = visiblePosts[index];
+      final isAuthor =
+          currentUserId != null && post['authorId'] == currentUserId;
       return _StackedPostCard(
         post: post,
         onTap: () => onPostTap(post),
         onCommentTap: onCommentTap == null ? null : () => onCommentTap(post),
         onLikeTap: onLikeTap == null ? null : () => onLikeTap(post),
+        onDeleteTap: (onDeleteTap == null || !isAuthor)
+            ? null
+            : () => onDeleteTap(post),
       );
     },
   );
@@ -63,12 +70,14 @@ class _StackedPostCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onCommentTap;
   final VoidCallback? onLikeTap;
+  final VoidCallback? onDeleteTap;
 
   const _StackedPostCard({
     required this.post,
     required this.onTap,
     this.onCommentTap,
     this.onLikeTap,
+    this.onDeleteTap,
   });
 
   @override
@@ -121,14 +130,26 @@ class _StackedPostCard extends StatelessWidget {
                   Positioned(
                     right: 12,
                     top: 12,
-                    child: _RoundCardAction(
-                      icon: youLiked
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      iconColor: youLiked
-                          ? Colors.redAccent
-                          : theme.colorScheme.onSurface,
-                      onTap: onLikeTap,
+                    child: Row(
+                      children: [
+                        if (onDeleteTap != null) ...[
+                          _RoundCardAction(
+                            icon: Icons.delete_outline_rounded,
+                            iconColor: Colors.redAccent,
+                            onTap: onDeleteTap,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        _RoundCardAction(
+                          icon: youLiked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          iconColor: youLiked
+                              ? Colors.redAccent
+                              : theme.colorScheme.onSurface,
+                          onTap: onLikeTap,
+                        ),
+                      ],
                     ),
                   ),
                 ],
