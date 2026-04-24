@@ -1,0 +1,66 @@
+from sqlalchemy import select, func, desc, and_
+from sqlalchemy.orm import Session
+
+from app.models import Post, PostLikes, PostComments, Community
+from app.models.community import user_communities
+from app.models.user import User
+
+
+def generate_algorithmic_feed(session: Session, current_user: User, coords):
+    user_point = func.ST_SetSRID(func.ST_MakePoint(coords.longitude, coords.latitude), 4326)
+
+    intersects = func.ST_Intersects(Community.geofence_boundary, user_point)
+    comm_distance = func.ST_Distance(Community.geofence_boundary, user_point)
+
+    member_count = select(func.count(user_communities.c.user_id)).where(
+        user_communities.c.community_id == Community.id
+    ).correlate(Community).scalar_subquery()
+
+    communities_stmt = (
+        select(Community)
+        .order_by(
+            desc(intersects),
+            comm_distance,
+            desc(func.coalesce(member_count, 0))
+        )
+        .limit(10)
+    )
+    communities = session.execute(communities_stmt).scalars().all()
+
+    like_count = select(func.count(PostLikes.id)).where(
+        PostLikes.post_id == Post.id
+    ).correlate(Post).scalar_subquery()
+
+    comment_count = select(func.count(PostComments.id)).where(
+        PostComments.post_id == Post.id
+    ).correlate(Post).scalar_subquery()
+
+    age_in_hours = func.extract('epoch', func.now() - Post.created_at) / 3600
+    post_distance = func.ST_Distance(Post.location, user_point)
+
+    score = (
+            (func.coalesce(like_count, 0) * 1.5) +
+            (func.coalesce(comment_count, 0) * 2.5) -
+            (post_distance * 0.05) -
+            (age_in_hours * 1.2)
+    ).label("score")
+
+    you_liked = select(PostLikes.post_id).where(
+        and_(PostLikes.post_id == Post.id, PostLikes.user_id == current_user.id)
+    ).correlate(Post).exists()
+
+    posts_stmt = (
+        select(
+            Post,
+            func.coalesce(like_count, 0).label("like_count"),
+            func.coalesce(comment_count, 0).label("comment_count"),
+            you_liked.label("you_liked")
+        )
+        .join(Post.author)
+        .where(post_distance < 80467)
+        .order_by(desc(score))
+        .limit(25)
+    )
+    raw_posts = session.execute(posts_stmt).all()
+
+    return communities, raw_posts
