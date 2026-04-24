@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
-import 'package:pawnder_app/services/community_service.dart';
-import 'package:pawnder_app/models/community.dart';
 
 class CommunityScreen extends StatefulWidget {
+  final List<Community> communities;
+  final String? selectedCommunityName;
   final List<Map<String, String>> posts;
   final bool isLoading;
   final ValueChanged<Map<String, String>> onPostTap;
   final VoidCallback onAddListingTap;
-  final ValueChanged<CommunityDefinition> onCommunityTap;
+  final ValueChanged<Community> onCommunityTap;
   final Future<void> Function()? onRefresh;
 
   const CommunityScreen({
     super.key,
+    required this.communities,
+    this.selectedCommunityName,
     required this.posts,
     this.isLoading = false,
     required this.onPostTap,
@@ -28,29 +31,6 @@ class CommunityScreen extends StatefulWidget {
 
 class _CommunityScreenState extends State<CommunityScreen> {
   String _searchQuery = '';
-  List<Community> _allNeighborhoods = [];
-  bool _loadingNeighborhoods = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadNeighborhoods();
-  }
-
-  Future<void> _loadNeighborhoods() async {
-    setState(() => _loadingNeighborhoods = true);
-    try {
-      final service = CommunityService();
-      final results = await service.getNeighborhoods(
-        latitude: 40.7128,
-        longitude: -74.0060,
-      );
-      if (mounted) setState(() => _allNeighborhoods = results);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _loadingNeighborhoods = false);
-    }
-  }
 
   void _showAllNeighborhoods() {
     showModalBottomSheet(
@@ -60,13 +40,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) {
-        if (_loadingNeighborhoods) {
+        if (widget.isLoading && widget.communities.isEmpty) {
           return const SizedBox(
             height: 200,
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        if (_allNeighborhoods.isEmpty) {
+        if (widget.communities.isEmpty) {
           return const SizedBox(
             height: 200,
             child: Center(child: Text('No neighborhoods found')),
@@ -74,27 +54,30 @@ class _CommunityScreenState extends State<CommunityScreen> {
         }
         return ListView.separated(
           padding: const EdgeInsets.all(24),
-          itemCount: _allNeighborhoods.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemCount: widget.communities.length,
+          separatorBuilder: (_, separatorIndex) => const Divider(height: 1),
           itemBuilder: (_, i) {
-            final n = _allNeighborhoods[i];
+            final n = widget.communities[i];
             return ListTile(
               title: Text(
                 n.name,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
               ),
               subtitle: Text(n.description),
               leading: CircleAvatar(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                child: const Icon(Icons.location_on, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.location_on,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);
-                widget.onCommunityTap(CommunityDefinition(
-                  label: n.name,
-                  title: n.name,
-                  icon: Icons.location_city_rounded,
-                ));
+                widget.onCommunityTap(n);
               },
             );
           },
@@ -106,6 +89,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final featuredCommunities = widget.communities.take(3).toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
@@ -118,21 +102,47 @@ class _CommunityScreenState extends State<CommunityScreen> {
             icon: Icons.travel_explore_rounded,
           ),
           const SizedBox(height: 18),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < _communities.length; i++) ...[
-                Expanded(
-                  child: _CommunityTile(
-                    label: _communities[i].label,
-                    icon: _communities[i].icon,
-                    onTap: () => widget.onCommunityTap(_communities[i]),
-                  ),
+          if (featuredCommunities.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Text(
+                widget.isLoading
+                    ? 'Loading nearby neighborhoods...'
+                    : 'No neighborhoods are available yet.',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                if (i < _communities.length - 1) const SizedBox(width: 10),
+              ),
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < featuredCommunities.length; i++) ...[
+                  Expanded(
+                    child: _CommunityTile(
+                      label: featuredCommunities[i].name,
+                      icon: Icons.location_city_rounded,
+                      isSelected:
+                          featuredCommunities[i].name ==
+                          widget.selectedCommunityName,
+                      onTap: () =>
+                          widget.onCommunityTap(featuredCommunities[i]),
+                    ),
+                  ),
+                  if (i < featuredCommunities.length - 1)
+                    const SizedBox(width: 10),
+                ],
               ],
-            ],
-          ),
+            ),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
@@ -157,6 +167,18 @@ class _CommunityScreenState extends State<CommunityScreen> {
           const SizedBox(height: 14),
           Container(height: 2, color: theme.dividerColor),
           const SizedBox(height: 12),
+          if (widget.selectedCommunityName != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Showing posts for ${widget.selectedCommunityName}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: widget.onRefresh ?? () async {},
@@ -169,10 +191,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                   if (widget.isLoading)
                     const Positioned(
-                      left: 0, right: 0, top: 8,
+                      left: 0,
+                      right: 0,
+                      top: 8,
                       child: Center(
                         child: SizedBox(
-                          width: 24, height: 24,
+                          width: 24,
+                          height: 24,
                           child: CircularProgressIndicator(strokeWidth: 2.5),
                         ),
                       ),
@@ -193,7 +218,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   elevation: theme.brightness == Brightness.dark ? 0 : 2,
                   shadowColor: const Color(0x18000000),
                   side: BorderSide(color: theme.dividerColor),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   shape: const StadiumBorder(),
                 ),
                 child: const FittedBox(
@@ -216,11 +244,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
 class _CommunityTile extends StatelessWidget {
   final String label;
   final IconData icon;
+  final bool isSelected;
   final VoidCallback onTap;
 
   const _CommunityTile({
     required this.label,
     required this.icon,
+    required this.isSelected,
     required this.onTap,
   });
 
@@ -239,7 +269,12 @@ class _CommunityTile extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: theme.dividerColor, width: 1),
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.dividerColor,
+                  width: isSelected ? 2 : 1,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.08),
@@ -250,8 +285,16 @@ class _CommunityTile extends StatelessWidget {
               ),
               child: ClipOval(
                 child: ColoredBox(
-                  color: theme.cardColor,
-                  child: Icon(icon, color: theme.colorScheme.onSurface, size: 30),
+                  color: isSelected
+                      ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                      : theme.cardColor,
+                  child: Icon(
+                    icon,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface,
+                    size: 30,
+                  ),
                 ),
               ),
             ),
@@ -261,9 +304,12 @@ class _CommunityTile extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14, height: 1.1,
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              height: 1.1,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
             ),
           ),
         ],
@@ -271,36 +317,6 @@ class _CommunityTile extends StatelessWidget {
     );
   }
 }
-
-class CommunityDefinition {
-  final String label;
-  final String title;
-  final IconData icon;
-
-  const CommunityDefinition({
-    required this.label,
-    required this.title,
-    required this.icon,
-  });
-}
-
-const List<CommunityDefinition> _communities = [
-  CommunityDefinition(
-    label: 'Lost\nCritters',
-    title: 'Lost Critters',
-    icon: Icons.search_rounded,
-  ),
-  CommunityDefinition(
-    label: 'Bird\nLovers',
-    title: 'Bird Lovers',
-    icon: Icons.flutter_dash_rounded,
-  ),
-  CommunityDefinition(
-    label: 'Brooklyn',
-    title: 'Brooklyn',
-    icon: Icons.location_city_rounded,
-  ),
-];
 
 class _SearchBar extends StatelessWidget {
   final ValueChanged<String> onChanged;
@@ -337,8 +353,11 @@ class _SearchBar extends StatelessWidget {
               ),
             ),
           ),
-          Icon(Icons.search_rounded, size: 18,
-              color: theme.colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ],
       ),
     );
