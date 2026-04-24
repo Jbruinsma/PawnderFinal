@@ -331,36 +331,35 @@ class _PostInfoSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MessageThreadScreen(
-                          thread: MessageThread(
-                            id: 'post-${post['id'] ?? firstName}',
-                            participantId: post['authorId'],
-                            participantName: author,
-                            title: post['title'] ?? 'Pet post conversation',
-                            subtitle: 'Community contact thread',
-                            unreadCount: 0,
-                            lastUpdatedLabel: 'Just now',
-                            messages: [
-                              ThreadMessage(
-                                text:
-                                    'Hi! I saw your post and wanted to reach out about ${post['title'] ?? 'your pet'}.',
-                                isMine: true,
-                                timestamp: 'Just now',
-                              ),
-                              const ThreadMessage(
-                                text:
-                                    'Thank you so much for messaging. Let me know what details you need.',
-                                isMine: false,
-                                timestamp: 'Just now',
-                              ),
-                            ],
+                    onPressed: () {
+                      final participantId = post['authorId'];
+                      if (participantId == null || participantId.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Author unavailable for messaging.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MessageThreadScreen(
+                            thread: MessageThread(
+                              id: participantId,
+                              participantId: participantId,
+                              participantName: author,
+                              title: 'Conversation with $firstName',
+                              subtitle: 'Community conversation',
+                              unreadCount: 0,
+                              lastUpdatedLabel: '',
+                              messages: const [],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                     child: Text(
                       'Contact $firstName',
                       style: const TextStyle(
