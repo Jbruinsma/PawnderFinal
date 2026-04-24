@@ -7,6 +7,7 @@ Widget buildCommunityPostsFeed({
   required String searchQuery,
   required ValueChanged<Map<String, String>> onPostTap,
   Future<void> Function(Map<String, String> post)? onCommentTap,
+  Future<void> Function(Map<String, String> post)? onLikeTap,
 }) {
   final query = searchQuery.trim().toLowerCase();
 
@@ -51,6 +52,7 @@ Widget buildCommunityPostsFeed({
         post: post,
         onTap: () => onPostTap(post),
         onCommentTap: onCommentTap == null ? null : () => onCommentTap(post),
+        onLikeTap: onLikeTap == null ? null : () => onLikeTap(post),
       );
     },
   );
@@ -60,17 +62,20 @@ class _StackedPostCard extends StatelessWidget {
   final Map<String, String> post;
   final VoidCallback onTap;
   final VoidCallback? onCommentTap;
+  final VoidCallback? onLikeTap;
 
   const _StackedPostCard({
     required this.post,
     required this.onTap,
     this.onCommentTap,
+    this.onLikeTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final youLiked = post['youLiked'] == 'true';
     final tags = (post['tags'] ?? '')
         .split('|')
         .where((tag) => tag.trim().isNotEmpty)
@@ -113,11 +118,17 @@ class _StackedPostCard extends StatelessWidget {
                           : 'Lost',
                     ),
                   ),
-                  const Positioned(
+                  Positioned(
                     right: 12,
                     top: 12,
                     child: _RoundCardAction(
-                      icon: Icons.favorite_border_rounded,
+                      icon: youLiked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      iconColor: youLiked
+                          ? Colors.redAccent
+                          : theme.colorScheme.onSurface,
+                      onTap: onLikeTap,
                     ),
                   ),
                 ],
@@ -191,8 +202,11 @@ class _StackedPostCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       _InlineMeta(
-                        icon: Icons.favorite_border_rounded,
+                        icon: youLiked
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
                         label: '${post['likeCount'] ?? '0'} likes',
+                        iconColor: youLiked ? Colors.redAccent : null,
                       ),
                       const Spacer(),
                       TextButton.icon(
@@ -215,8 +229,9 @@ class _StackedPostCard extends StatelessWidget {
 class _InlineMeta extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color? iconColor;
 
-  const _InlineMeta({required this.icon, required this.label});
+  const _InlineMeta({required this.icon, required this.label, this.iconColor});
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +240,11 @@ class _InlineMeta extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: 15,
+          color: iconColor ?? theme.colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
         Text(
           label,
@@ -272,24 +291,37 @@ class _StatusBadge extends StatelessWidget {
 
 class _RoundCardAction extends StatelessWidget {
   final IconData icon;
+  final Color? iconColor;
+  final VoidCallback? onTap;
 
-  const _RoundCardAction({required this.icon});
+  const _RoundCardAction({required this.icon, this.iconColor, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.black.withValues(alpha: 0.72)
-            : Colors.white.withValues(alpha: 0.94),
-        shape: BoxShape.circle,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Ink(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.72)
+                : Colors.white.withValues(alpha: 0.94),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: iconColor ?? theme.colorScheme.onSurface,
+            size: 19,
+          ),
+        ),
       ),
-      child: Icon(icon, color: theme.colorScheme.onSurface, size: 19),
     );
   }
 }
