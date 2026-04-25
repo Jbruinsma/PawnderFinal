@@ -28,6 +28,7 @@ import 'package:pawnder_app/services/message_socket_service.dart';
 import 'dart:async';
 
 const List<Map<String, String>> _staticPets = [];
+const List<String> _defaultCategories = ['Dogs', 'Cats', 'Birds'];
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -61,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _messageBadgeCount = 0;
   StreamSubscription? _messageSubscription;
   Future<PostLocation?>? _locationFuture;
+  List<String> _feedCategories = _defaultCategories;
 
   static const _defaultLatitude = 40.7128;
   static const _defaultLongitude = -74.0060;
@@ -230,6 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
     List<Community> nearbyCommunities = const [];
     List<Community> savedCommunities = const [];
     List<CommunityPost> posts = const [];
+    List<String> tags = _defaultCategories;
 
     try {
       nearbyCommunities = await _communityService.getNeighborhoods(
@@ -250,6 +253,10 @@ class _HomeScreenState extends State<HomeScreen> {
         longitude: lon,
       );
       posts = feedData['posts'] as List<CommunityPost>;
+      final apiTags = feedData['applicable_tags'] as List<String>;
+      if (apiTags.isNotEmpty) {
+        tags = apiTags;
+      }
     } catch (_) {
       if (mounted && !isSilentUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -286,6 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _recommendedPosts = posts;
         _nearbyPets = posts.map((post) => post.toPetMap()).toList();
         _shouldShowFallbackPets = _nearbyPets.isEmpty;
+        _feedCategories = tags;
         if (!isSilentUpdate) {
           _isLoadingCommunityPosts = false;
         }
@@ -522,7 +530,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final glassColor = isDark
         ? Colors.white.withValues(alpha: 0.05)
         : Colors.black.withValues(alpha: 0.03);
-    final recommendedPostMaps = _recommendedPosts
+
+    final filteredPosts = _selectedCategory == 'all'
+        ? _recommendedPosts
+        : _recommendedPosts.where((post) {
+            return post.tags.any((tag) =>
+                tag.toLowerCase() == _selectedCategory.toLowerCase());
+          }).toList();
+
+    final recommendedPostMaps = filteredPosts
         .map((post) => post.toFeedMap())
         .toList();
 
@@ -541,7 +557,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               if (!isResultsMode)
                 Text(
-                  'Browse by pet',
+                  'Filter By Tags...',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -560,19 +576,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-              if (!isResultsMode) const SizedBox(height: 12),
-              if (!isResultsMode && recommendedPostMaps.isEmpty)
+              if (!isResultsMode) ...[
+                const SizedBox(height: 12),
                 buildCategoryRow(
+                  categories: _feedCategories,
                   selectedCategory: _selectedCategory,
                   onCategoryTap: (category) =>
                       setState(() => _selectedCategory = category),
                 ),
-              if (!isResultsMode) ...[
                 const SizedBox(height: 22),
                 Text(
                   recommendedPostMaps.isEmpty
                       ? 'Ideas for you'
-                      : 'Recommended posts',
+                      : 'What\'s New',
                   style: TextStyle(
                     fontSize: 23,
                     fontWeight: FontWeight.w800,

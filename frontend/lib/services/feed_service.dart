@@ -24,9 +24,12 @@ class FeedService {
         .map((p) => CommunityPost.fromJson(p as Map<String, dynamic>))
         .toList();
 
+    final tags = (data['applicable_tags'] as List?)?.cast<String>() ?? [];
+
     return {
       'communities': communities,
       'posts': posts,
+      'applicable_tags': tags,
     };
   }
 }
