@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:pawnder_app/models/message_thread.dart';
 import 'package:pawnder_app/screens/home/message_thread_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
+import 'package:pawnder_app/services/message_service.dart';
 import 'package:pawnder_app/services/post_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/pet_image.dart';
@@ -18,6 +18,7 @@ class MissingPostDetailsScreen extends StatefulWidget {
 
 class _MissingPostDetailsScreenState extends State<MissingPostDetailsScreen> {
   final _authService = AuthService();
+  final _messageService = MessageService();
   final _postService = PostService();
   bool _isBookmarked = false;
   bool _isBookmarking = false;
@@ -91,19 +92,56 @@ class _MissingPostDetailsScreenState extends State<MissingPostDetailsScreen> {
     }
   }
 
+  Future<void> _openConversation() async {
+    final participantId = widget.post['authorId'];
+    if (participantId == null || participantId.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This post does not have a valid message recipient.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final author = widget.post['author'] ?? 'Pet Owner';
+    final thread = _messageService.buildDirectThread(
+      participantId: participantId,
+      participantName: author,
+      title: widget.post['title'] ?? 'Pet post conversation',
+      subtitle: 'Community contact thread',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MessageThreadScreen(thread: thread)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
-    final theme = Theme.of(context);
     final author = post['author'] ?? 'Pet Owner';
-    final firstName =
-        author.trim().isEmpty ? 'Owner' : author.split(' ').first;
+    final firstName = author.trim().isEmpty ? 'Owner' : author.split(' ').first;
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: Colors.black,
       body: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Positioned.fill(
+          Positioned(
+            left: 0,
+            top: -topInset,
+            right: 0,
+            bottom: 0,
             child: PetImage(
               image: post['image'],
               height: double.infinity,
@@ -112,7 +150,11 @@ class _MissingPostDetailsScreenState extends State<MissingPostDetailsScreen> {
               seed: post['id'] ?? post['title'] ?? '',
             ),
           ),
-          Positioned.fill(
+          Positioned(
+            left: 0,
+            top: -topInset,
+            right: 0,
+            bottom: 0,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -191,6 +233,7 @@ class _MissingPostDetailsScreenState extends State<MissingPostDetailsScreen> {
                 author: author,
                 firstName: firstName,
                 scrollController: scrollController,
+                onContactTap: _openConversation,
               );
             },
           ),
@@ -205,12 +248,14 @@ class _PostInfoSheet extends StatelessWidget {
   final String author;
   final String firstName;
   final ScrollController scrollController;
+  final VoidCallback onContactTap;
 
   const _PostInfoSheet({
     required this.post,
     required this.author,
     required this.firstName,
     required this.scrollController,
+    required this.onContactTap,
   });
 
   @override
@@ -331,38 +376,10 @@ class _PostInfoSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    onPressed: () {
-                      final participantId = post['authorId'];
-                      if (participantId == null || participantId.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Author unavailable for messaging.'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MessageThreadScreen(
-                            thread: MessageThread(
-                              id: participantId,
-                              participantId: participantId,
-                              participantName: author,
-                              title: 'Conversation with $firstName',
-                              subtitle: 'Community conversation',
-                              unreadCount: 0,
-                              lastUpdatedLabel: '',
-                              messages: const [],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      'Contact $firstName',
-                      style: const TextStyle(
+                    onPressed: onContactTap,
+                    child: const Text(
+                      'Message this user',
+                      style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 18,
                       ),
