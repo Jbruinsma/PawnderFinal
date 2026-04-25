@@ -26,6 +26,19 @@ class CommunityScreen extends StatefulWidget {
 
 class _CommunityScreenState extends State<CommunityScreen> {
   bool _isCreateMenuExpanded = false;
+  String _searchQuery = '';
+
+  List<Community> get _filteredCommunities {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      return widget.communities;
+    }
+
+    return widget.communities.where((community) {
+      return community.name.toLowerCase().contains(query) ||
+          community.description.toLowerCase().contains(query);
+    }).toList();
+  }
 
   void _toggleCreateMenu() {
     setState(() {
@@ -52,16 +65,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) {
-        if (widget.isLoading && widget.communities.isEmpty) {
+        final visibleCommunities = _filteredCommunities;
+
+        if (widget.isLoading && visibleCommunities.isEmpty) {
           return const SizedBox(
             height: 260,
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        if (widget.communities.isEmpty) {
-          return const SizedBox(
+        if (visibleCommunities.isEmpty) {
+          return SizedBox(
             height: 260,
-            child: Center(child: Text('No neighborhoods found')),
+            child: Center(
+              child: Text(
+                _searchQuery.trim().isEmpty
+                    ? 'No neighborhoods found'
+                    : 'No communities match "${_searchQuery.trim()}"',
+              ),
+            ),
           );
         }
         return SafeArea(
@@ -83,11 +104,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
-                    itemCount: widget.communities.length,
+                    itemCount: visibleCommunities.length,
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final community = widget.communities[index];
+                      final community = visibleCommunities[index];
                       return _CommunityCard(
                         community: community,
                         isSelected:
@@ -111,6 +132,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final visibleCommunities = _filteredCommunities;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
@@ -123,6 +145,43 @@ class _CommunityScreenState extends State<CommunityScreen> {
             icon: Icons.travel_explore_rounded,
           ),
           const SizedBox(height: 18),
+          Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: theme.dividerColor),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      hintText: 'Search communities...',
+                      border: InputBorder.none,
+                    ),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           if (widget.communities.isEmpty)
             Container(
               width: double.infinity,
@@ -143,15 +202,33 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ),
               ),
             )
+          else if (visibleCommunities.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Text(
+                'No communities match "${_searchQuery.trim()}".',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
           else
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.only(bottom: 148),
-                itemCount: widget.communities.length,
+                itemCount: visibleCommunities.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 14),
                 itemBuilder: (context, index) {
-                  final community = widget.communities[index];
+                  final community = visibleCommunities[index];
                   return _CommunityCard(
                     community: community,
                     isSelected: community.name == widget.selectedCommunityName,
