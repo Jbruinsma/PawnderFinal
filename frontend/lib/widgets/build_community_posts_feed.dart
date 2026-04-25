@@ -107,27 +107,15 @@ class _StackedPostCard extends StatelessWidget {
                 top: Radius.circular(20),
               ),
               child: Stack(
-                fit: StackFit.expand,
                 children: [
                   AspectRatio(
                     aspectRatio: 1.55,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Positioned(
-                          left: -3,
-                          top: -3,
-                          right: -3,
-                          bottom: -3,
-                          child: PetImage(
-                            image: post['image'],
-                            height: double.infinity,
-                            width: double.infinity,
-                            preserveSubject: true,
-                            seed: post['id'] ?? post['title'] ?? '',
-                          ),
-                        ),
-                      ],
+                    child: PetImage(
+                      image: post['image'],
+                      height: double.infinity,
+                      width: double.infinity,
+                      preserveSubject: true,
+                      seed: post['id'] ?? post['title'] ?? '',
                     ),
                   ),
                   Positioned(
