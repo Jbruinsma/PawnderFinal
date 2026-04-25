@@ -62,8 +62,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _shouldShowFallbackPets = true;
   int _messageBadgeCount = 0;
   StreamSubscription? _messageSubscription;
+<<<<<<< Updated upstream
   Future<PostLocation?>? _locationFuture;
   List<String> _feedCategories = _defaultCategories;
+=======
+>>>>>>> Stashed changes
 
   static const _defaultLatitude = 40.7128;
   static const _defaultLongitude = -74.0060;
@@ -80,7 +83,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _selectedNavIndex = widget.initialNavIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+<<<<<<< Updated upstream
       _initializeHome();
+=======
+      _loadCommunityData();
+      _refreshMessageBadge();
+      _connectMessageSocket();
+>>>>>>> Stashed changes
     });
   }
 
@@ -169,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+<<<<<<< Updated upstream
   Future<PostLocation?> _requestLocationAsSoonAsPossible({
     required String userId,
   }) async {
@@ -181,13 +191,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+=======
+>>>>>>> Stashed changes
   Future<void> _loadCommunityData() async {
     setState(() => _isLoadingCommunityPosts = true);
+
+    try {
+      _currentUser = await _authService.getCurrentUser();
+    } catch (_) {
+      _currentUser = null;
+    }
 
     double lat = _defaultLatitude;
     double lon = _defaultLongitude;
 
     try {
+<<<<<<< Updated upstream
       final cachedLatStr = await _storage.read(key: 'last_known_lat');
       final cachedLonStr = await _storage.read(key: 'last_known_lon');
       if (cachedLatStr != null && cachedLonStr != null) {
@@ -227,10 +246,21 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentUser = await _authService.getCurrentUser();
       } catch (_) {
         _currentUser = null;
+=======
+      final currentLocation = await _locationService
+          .requestAndSaveCurrentLocation();
+      if (currentLocation != null) {
+        lat = currentLocation.latitude;
+        lon = currentLocation.longitude;
+>>>>>>> Stashed changes
       }
     }
 
+<<<<<<< Updated upstream
     List<Community> nearbyCommunities = const [];
+=======
+    List<Community> visibleCommunities = const [];
+>>>>>>> Stashed changes
     List<Community> savedCommunities = const [];
     List<CommunityPost> posts = const [];
     List<String> tags = _defaultCategories;
