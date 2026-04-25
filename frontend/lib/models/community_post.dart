@@ -6,8 +6,8 @@ class PostLocation {
 
   factory PostLocation.fromJson(Map<String, dynamic> json) {
     return PostLocation(
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -62,11 +62,11 @@ class CommunityPost {
   }
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
-    final rawLocation = json['location'] as Map<String, dynamic>;
+    final rawLocation = json['location'] as Map<String, dynamic>? ?? {};
 
     return CommunityPost(
-      id: (json['id'] ?? json['post_id']).toString(),
-      authorId: json['author_id'].toString(),
+      id: (json['id'] ?? json['post_id'])?.toString() ?? '',
+      authorId: json['author_id']?.toString() ?? '',
       communityId: json['community_id']?.toString(),
       authorName: json['author_username']?.toString(),
       postType: json['post_type']?.toString() ?? '',
@@ -74,7 +74,7 @@ class CommunityPost {
       description: json['description']?.toString() ?? '',
       imageUrl: json['image_url']?.toString(),
       status: json['status']?.toString() ?? '',
-      createdAt: DateTime.parse(json['created_at'].toString()),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       location: PostLocation.fromJson(rawLocation),
       tags: (json['tags'] as List<dynamic>? ?? const [])
           .map((tag) => tag.toString())
@@ -101,6 +101,7 @@ class CommunityPost {
       'section': section,
       'title': title,
       'authorId': authorId,
+      'communityId': communityId ?? '',
       'author': authorName ?? 'Community member',
       'location': '${location.latitude}, ${location.longitude}',
       'posted': formattedCreatedAt,
@@ -225,14 +226,12 @@ class PostComment {
     final rawAuthorName = json['author_name']?.toString() ?? '';
 
     return PostComment(
-      commentId: json['comment_id'].toString(),
-      postId: json['post_id'].toString(),
-      userId: json['user_id'].toString(),
-      authorName: rawAuthorName.trim().isEmpty
-          ? 'Member'
-          : rawAuthorName.trim(),
+      commentId: json['comment_id']?.toString() ?? '',
+      postId: json['post_id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      authorName: rawAuthorName.trim().isEmpty ? 'Member' : rawAuthorName.trim(),
       content: json['content']?.toString() ?? '',
-      createdAt: DateTime.parse(json['created_at'].toString()),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
       youLiked: json['you_liked'] as bool? ?? false,
       replyingToId: json['replying_to_id']?.toString(),

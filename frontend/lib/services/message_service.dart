@@ -81,7 +81,7 @@ class MessageService {
   }
 
   Future<void> deleteThread(String participantId) async {
-    return;
+    await _apiClient.delete('/messages/threads/$participantId');
   }
 
   Future<ThreadMessage> unsendMessage(ThreadMessage message) async {

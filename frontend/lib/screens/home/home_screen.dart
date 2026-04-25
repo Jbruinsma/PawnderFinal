@@ -12,6 +12,7 @@ import 'package:pawnder_app/screens/home/listing_screen.dart';
 import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
 import 'package:pawnder_app/screens/home/profile_screen.dart';
 import 'package:pawnder_app/screens/home/pet_details_screen.dart';
+import 'package:pawnder_app/screens/home/unified_post_detail_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
 import 'package:pawnder_app/services/community_service.dart';
 import 'package:pawnder_app/services/location_service.dart';
@@ -600,31 +601,37 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: recommendedPostMaps.isNotEmpty
                     ? buildCommunityPostsFeed(
-                        posts: recommendedPostMaps,
-                        searchQuery: _searchQuery,
-                        onPostTap: (postMap) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  MissingPostDetailsScreen(post: postMap),
-                            ),
-                          );
-                        },
-                      )
-                    : buildPetList(
-                        pets: _visiblePets,
-                        selectedCategory: isResultsMode
-                            ? 'all'
-                            : _selectedCategory,
-                        searchQuery: _searchQuery,
-                        onPetTap: (pet) => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PetDetailsScreen(pet: pet),
-                          ),
-                        ),
+                  posts: recommendedPostMaps,
+                  searchQuery: _searchQuery,
+                  currentUserId: _currentUser?.id,
+                  onPostTap: (postMap) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UnifiedPostDetailScreen(post: postMap),
                       ),
+                    );
+                    },
+                  onCommentTap: (postMap) async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                      ),
+                    );
+                    },
+                )
+                    : buildPetList(
+                  pets: _visiblePets,
+                  selectedCategory: isResultsMode ? 'all' : _selectedCategory,
+                  searchQuery: _searchQuery,
+                  onPetTap: (pet) => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => UnifiedPostDetailScreen(post: pet),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),

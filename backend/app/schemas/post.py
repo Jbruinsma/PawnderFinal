@@ -100,7 +100,7 @@ class PostComment(BaseModel):
     author_name: str = ""
     replying_to_id: Optional[UUID] = None
     content: str
-    created_at: str
+    created_at: datetime
     like_count: int = 0
     you_liked: bool = False
 

@@ -1,26 +1,31 @@
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/models/community_post.dart';
-import 'api_client.dart';
+import 'package:pawnder_app/services/api_client.dart';
 
 class FeedService {
-  final ApiClient _apiClient = ApiClient();
+  FeedService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
-  Future<Map<String, dynamic>> getNewFeed({required double latitude, required double longitude}) async {
-    final response = await _apiClient.get(
-      'community/new-feed',
+  final ApiClient _apiClient;
+
+  Future<Map<String, dynamic>> getNewFeed({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/community/new-feed',
       queryParameters: {
         'latitude': latitude,
         'longitude': longitude,
       },
     );
 
-    final data = response.data as Map<String, dynamic>;
+    final data = response.data ?? const {};
 
-    final communities = (data['communities'] as List)
+    final communities = (data['communities'] as List? ?? const [])
         .map((c) => Community.fromJson(c as Map<String, dynamic>))
         .toList();
 
-    final posts = (data['posts'] as List)
+    final posts = (data['posts'] as List? ?? const [])
         .map((p) => CommunityPost.fromJson(p as Map<String, dynamic>))
         .toList();
 

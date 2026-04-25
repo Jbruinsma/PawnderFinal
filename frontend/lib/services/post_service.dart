@@ -13,7 +13,9 @@ class PostService {
     final response = shouldLike
         ? await _apiClient.post<Map<String, dynamic>>(path)
         : await _apiClient.delete<Map<String, dynamic>>(path);
-    return (response.data?['new_like_count'] as num?)?.toInt() ?? 0;
+
+    if (response.data == null) return 0;
+    return (response.data!['new_like_count'] as num?)?.toInt() ?? 0;
   }
 
   Future<List<CommunityPost>> getCommunityPosts({
@@ -22,14 +24,21 @@ class PostService {
     int offset = 1,
   }) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '/community/posts',
+      'community/posts',
       queryParameters: {
         'community_id': communityId,
         'limit': limit,
         'offset': offset,
       },
     );
-    final posts = response.data?['posts'] as List<dynamic>? ?? const [];
+
+    if (response.data == null || !response.data!.containsKey('posts')) {
+      return const [];
+    }
+
+    final posts = response.data!['posts'];
+    if (posts is! List) return const [];
+
     return posts
         .map((json) => CommunityPost.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -40,12 +49,13 @@ class PostService {
     List<String>? tags,
   }) async {
     final response = await _apiClient.get<List<dynamic>>(
-      '/geo/feed',
+      'geo/feed',
       queryParameters: {
         'radius_km': radiusKm,
         if (tags != null && tags.isNotEmpty) 'tags': tags,
       },
     );
+
     final posts = response.data ?? const [];
     return posts
         .map((json) => CommunityPost.fromJson(json as Map<String, dynamic>))
@@ -59,7 +69,7 @@ class PostService {
     List<String>? tags,
   }) async {
     final response = await _apiClient.get<List<dynamic>>(
-      '/geo/search',
+      'geo/search',
       queryParameters: {
         'lat': latitude,
         'lon': longitude,
@@ -67,6 +77,7 @@ class PostService {
         if (tags != null && tags.isNotEmpty) 'tags': tags,
       },
     );
+
     final posts = response.data ?? const [];
     return posts
         .map((json) => CommunityPost.fromJson(json as Map<String, dynamic>))
@@ -74,23 +85,40 @@ class PostService {
   }
 
   Future<void> deletePost({required String postId}) async {
-    await _apiClient.delete<void>('/community/posts/$postId');
+    await _apiClient.delete<void>('community/posts/$postId');
   }
 
   Future<String> createPost(CreatePostRequest request) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
-      '/community/posts',
+      'community/posts',
       data: request.toJson(),
     );
-    return response.data?['post_id']?.toString() ?? '';
+
+    if (response.data == null) return '';
+    return response.data!['post_id']?.toString() ?? '';
   }
 
-  Future<List<PostComment>> getPostComments({required String postId}) async {
+  Future<List<PostComment>> getPostComments({
+    required String postId,
+    int limit = 25,
+    int offset = 1,
+  }) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '/community/posts/$postId/comments',
+      'community/posts/$postId/comments',
+      queryParameters: {
+        'limit': limit,
+        'offset': offset,
+      },
     );
-    final comments = response.data?['comments'] as List<dynamic>? ?? const [];
-    return comments
+
+    if (response.data == null || !response.data!.containsKey('comments')) {
+      return const [];
+    }
+
+    final rawComments = response.data!['comments'];
+    if (rawComments is! List) return const [];
+
+    return rawComments
         .map((json) => PostComment.fromJson(json as Map<String, dynamic>))
         .toList();
   }
@@ -101,9 +129,13 @@ class PostService {
     String? replyingToId,
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
-      '/community/posts/$postId/comment',
-      data: {'content': content, 'replying_to_id': replyingToId},
+      'community/posts/$postId/comments',
+      data: {
+        'content': content,
+        if (replyingToId != null) 'replying_to_id': replyingToId,
+      },
     );
+
     return PostComment.fromJson(response.data ?? const {});
   }
 
@@ -113,23 +145,30 @@ class PostService {
     required bool shouldLike,
   }) {
     return _extractLikeCount(
-      path: '/community/posts/$postId/comments/$commentId/like',
+      path: 'community/posts/$postId/comments/$commentId/like',
       shouldLike: shouldLike,
     );
   }
 
   Future<int> setPostLike({required String postId, required bool shouldLike}) {
     return _extractLikeCount(
-      path: '/community/posts/$postId/like',
+      path: 'community/posts/$postId/like',
       shouldLike: shouldLike,
     );
   }
 
   Future<List<CommunityPost>> getUserPosts({required String userId}) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '/community/users/$userId/posts',
+      'community/users/$userId/posts',
     );
-    final posts = response.data?['posts'] as List<dynamic>? ?? const [];
+
+    if (response.data == null || !response.data!.containsKey('posts')) {
+      return const [];
+    }
+
+    final posts = response.data!['posts'];
+    if (posts is! List) return const [];
+
     return posts
         .map((json) => CommunityPost.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -137,9 +176,16 @@ class PostService {
 
   Future<List<CommunityPost>> getUserBookmarks({String? userId}) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '/community/bookmarks',
+      'community/bookmarks',
     );
-    final posts = response.data?['posts'] as List<dynamic>? ?? const [];
+
+    if (response.data == null || !response.data!.containsKey('posts')) {
+      return const [];
+    }
+
+    final posts = response.data!['posts'];
+    if (posts is! List) return const [];
+
     return posts
         .map((json) => CommunityPost.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -149,7 +195,7 @@ class PostService {
     required String postId,
     String? userId,
   }) async {
-    await _apiClient.post<void>('/community/posts/$postId/bookmark');
+    await _apiClient.post<void>('community/posts/$postId/bookmark');
   }
 
   Future<bool> isPostBookmarked({
@@ -168,6 +214,6 @@ class PostService {
     required String postId,
     String? userId,
   }) async {
-    await _apiClient.delete<void>('/community/posts/$postId/bookmark');
+    await _apiClient.delete<void>('community/posts/$postId/bookmark');
   }
 }
