@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy import func, select, and_, Row, desc, union_all, delete
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 from starlette import status
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Polygon
@@ -599,6 +599,7 @@ def get_user_bookmarks(
         .join(Post.author)
         .where(bookmarks_table.c.user_id == current_user.id)
         .order_by(desc(Post.created_at))
+        .options(defer(Post.location))
     )
 
     rows = session.execute(stmt).all()
