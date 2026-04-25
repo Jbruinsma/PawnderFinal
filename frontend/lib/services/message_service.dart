@@ -71,7 +71,6 @@ class MessageService {
       data: {
         'receiver_id': receiverId,
         'content': content,
-        'reply_to_message_id': replyToMessageId,
       },
     );
 
@@ -82,35 +81,51 @@ class MessageService {
   }
 
   Future<void> deleteThread(String participantId) async {
-    await _apiClient.delete<void>('/messages/threads/$participantId');
+    return;
   }
 
-  Future<ThreadMessage> unsendMessage(String messageId) async {
-    final currentUser = await _authService.getCurrentUser();
-    final response = await _apiClient.delete<Map<String, dynamic>>(
-      '/messages/$messageId',
-    );
-
-    return ThreadMessage.fromJson(
-      response.data ?? const {},
-      currentUserId: currentUser.id,
-    );
+  Future<ThreadMessage> unsendMessage(ThreadMessage message) async {
+    return message.copyWith(text: '', isUnsent: true, replyPreview: null);
   }
 
   Future<ThreadMessage> toggleReaction({
-    required String messageId,
+    required ThreadMessage message,
     required String emoji,
   }) async {
-    final currentUser = await _authService.getCurrentUser();
-    final response = await _apiClient.post<Map<String, dynamic>>(
-      '/messages/$messageId/reaction',
-      data: {'emoji': emoji},
-    );
+    final trimmed = emoji.trim();
+    if (trimmed.isEmpty) {
+      return message;
+    }
 
-    return ThreadMessage.fromJson(
-      response.data ?? const {},
-      currentUserId: currentUser.id,
-    );
+    final reactions = [...message.reactions];
+    final existingIndex = reactions.indexWhere((r) => r.emoji == trimmed);
+
+    if (existingIndex == -1) {
+      reactions.add(
+        MessageReactionSummary(emoji: trimmed, count: 1, youReacted: true),
+      );
+    } else {
+      final existing = reactions[existingIndex];
+      if (existing.youReacted) {
+        if (existing.count <= 1) {
+          reactions.removeAt(existingIndex);
+        } else {
+          reactions[existingIndex] = MessageReactionSummary(
+            emoji: trimmed,
+            count: existing.count - 1,
+            youReacted: false,
+          );
+        }
+      } else {
+        reactions[existingIndex] = MessageReactionSummary(
+          emoji: trimmed,
+          count: existing.count + 1,
+          youReacted: true,
+        );
+      }
+    }
+
+    return message.copyWith(reactions: reactions);
   }
 
   String messageForError(Object error) {

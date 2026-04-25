@@ -85,7 +85,7 @@ class MessageSocketService {
 
     return apiUri.replace(
       scheme: scheme,
-      path: '$normalizedPath/messages/ws',
+      path: '$normalizedPath/messaging/ws',
       queryParameters: {'token': token},
     );
   }

@@ -166,7 +166,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
     }
 
     try {
-      final updated = await _messageService.unsendMessage(messageId);
+      final updated = await _messageService.unsendMessage(message);
       if (!mounted) {
         return;
       }
@@ -195,7 +195,7 @@ class _MessageThreadScreenState extends State<MessageThreadScreen> {
 
     try {
       final updated = await _messageService.toggleReaction(
-        messageId: messageId,
+        message: message,
         emoji: emoji.trim(),
       );
       if (!mounted) {
