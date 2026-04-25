@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/message_thread.dart';
 import 'package:pawnder_app/screens/home/message_thread_screen.dart';
 import 'package:pawnder_app/services/message_service.dart';
+import 'package:pawnder_app/services/message_socket_service.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
-import 'package:pawnder_app/widgets/pet_image.dart';
+import 'package:pawnder_app/widgets/user_avatar.dart';
+import 'dart:async';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -14,11 +16,13 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _messageService = MessageService();
+  final _messageSocketService = MessageSocketService();
 
   List<MessageThread> _threads = const [];
   String? _selectedThreadId;
   bool _isLoading = true;
   String? _errorMessage;
+  StreamSubscription? _messageSubscription;
 
   MessageThread? get _selectedThread {
     if (_threads.isEmpty) {
@@ -35,6 +39,22 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _loadThreads();
+    _subscribeToLiveMessages();
+  }
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _subscribeToLiveMessages() async {
+    await _messageSocketService.connect();
+    _messageSubscription = _messageSocketService.incomingEvents.listen((_) {
+      if (mounted) {
+        _loadThreads();
+      }
+    });
   }
 
   Future<void> _loadThreads() async {
@@ -82,6 +102,49 @@ class _ChatScreenState extends State<ChatScreen> {
     await _loadThreads();
   }
 
+  Future<void> _confirmDeleteThread(MessageThread thread) async {
+    final participantId = thread.participantId;
+    if (participantId == null) {
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete chat?'),
+        content: Text(
+          'Remove your conversation with ${thread.participantName} from this inbox?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    try {
+      await _messageService.deleteThread(participantId);
+      await _loadThreads();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorMessage = _messageService.messageForError(error);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -94,7 +157,6 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           const HomeHeader(
             title: 'Messages',
-            subtitle: 'Conversations about pets and listings',
             icon: Icons.mark_unread_chat_alt_outlined,
           ),
           const SizedBox(height: 18),
@@ -188,6 +250,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         thread: thread,
                         isSelected: isSelected,
                         onTap: () => _openThread(thread),
+                        onLongPress: () => _confirmDeleteThread(thread),
                       );
                     },
                   ),
@@ -202,11 +265,13 @@ class _ThreadListTile extends StatelessWidget {
   final MessageThread thread;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   const _ThreadListTile({
     required this.thread,
     required this.isSelected,
     required this.onTap,
+    required this.onLongPress,
   });
 
   @override
@@ -217,6 +282,7 @@ class _ThreadListTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -249,13 +315,12 @@ class _ThreadListTile extends StatelessWidget {
               backgroundColor: isSelected
                   ? theme.cardColor
                   : theme.scaffoldBackgroundColor,
-              child: ClipOval(
-                child: PetImage(
-                  image: 'mock://thread/${thread.id}',
-                  width: 44,
-                  height: 44,
-                  seed: thread.id,
-                ),
+              child: UserAvatar(
+                imagePath: thread.participantAvatarPath,
+                size: 44,
+                backgroundColor: isSelected
+                    ? theme.cardColor
+                    : theme.scaffoldBackgroundColor,
               ),
             ),
             const SizedBox(width: 12),

@@ -24,18 +24,20 @@ class PetImage extends StatelessWidget {
     final source = image?.trim() ?? '';
     final resolvedFit = preserveSubject ? BoxFit.cover : fit;
     final alignment = preserveSubject ? Alignment.center : Alignment.center;
+    final resolvedWidth = width != null && width!.isFinite ? width : null;
+    final resolvedHeight = height.isFinite ? height : null;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     Widget themedFrame(Widget child) {
       return Container(
-        width: width ?? double.infinity,
+        width: resolvedWidth ?? double.infinity,
         height: height,
         color: isDark ? AppColors.darkBackground : AppColors.inputSurface,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            child,
+            Positioned.fill(child: child),
             if (isDark) ColoredBox(color: Colors.black.withValues(alpha: 0.34)),
           ],
         ),
@@ -46,7 +48,7 @@ class PetImage extends StatelessWidget {
       return themedFrame(
         _MockAnimalPhoto(
           height: height,
-          width: width,
+          width: resolvedWidth,
           fit: resolvedFit,
           seed: source,
           alignment: alignment,
@@ -58,13 +60,13 @@ class PetImage extends StatelessWidget {
       Widget networkImage(BoxFit imageFit) {
         return Image.network(
           source,
-          height: height,
-          width: width,
+          height: resolvedHeight,
+          width: resolvedWidth,
           fit: imageFit,
           alignment: alignment,
           errorBuilder: (context, error, stackTrace) => _PetPlaceholder(
             height: height,
-            width: width,
+            width: resolvedWidth,
             seed: seed.isEmpty ? source : seed,
           ),
         );
@@ -77,13 +79,13 @@ class PetImage extends StatelessWidget {
       Widget assetImage(BoxFit imageFit) {
         return Image.asset(
           source,
-          height: height,
-          width: width,
+          height: resolvedHeight,
+          width: resolvedWidth,
           fit: imageFit,
           alignment: alignment,
           errorBuilder: (context, error, stackTrace) => _PetPlaceholder(
             height: height,
-            width: width,
+            width: resolvedWidth,
             seed: seed.isEmpty ? source : seed,
           ),
         );

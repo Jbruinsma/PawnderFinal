@@ -11,14 +11,14 @@ Widget buildHeader() {
 
 class HomeHeader extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final IconData? icon;
   final Widget? trailing;
 
   const HomeHeader({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     this.icon,
     this.trailing,
   });
@@ -69,17 +69,19 @@ class HomeHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.screenSubtitle(context).copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.screenSubtitle(context).copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

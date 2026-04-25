@@ -1,13 +1,49 @@
 import 'package:flutter/material.dart';
-import 'package:pawnder_app/models/message_thread.dart';
 import 'package:pawnder_app/screens/home/message_thread_screen.dart';
+import 'package:pawnder_app/services/message_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/pet_image.dart';
 
-class PetDetailsScreen extends StatelessWidget {
+class PetDetailsScreen extends StatefulWidget {
   final Map<String, String> pet;
 
   const PetDetailsScreen({super.key, required this.pet});
+
+  @override
+  State<PetDetailsScreen> createState() => _PetDetailsScreenState();
+}
+
+class _PetDetailsScreenState extends State<PetDetailsScreen> {
+  static final MessageService _messageService = MessageService();
+
+  Map<String, String> get pet => widget.pet;
+
+  Future<void> _openConversation(BuildContext context) async {
+    final participantId = pet['authorId'];
+    if (participantId == null || participantId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This listing does not have a valid message recipient.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final thread = _messageService.buildDirectThread(
+      participantId: participantId,
+      participantName: pet['ownerName'] ?? 'Pet owner',
+      title: '${pet['name'] ?? 'Pet'} adoption chat',
+      subtitle: pet['ownerMeta'] ?? 'Pet owner',
+    );
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MessageThreadScreen(thread: thread)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +121,7 @@ class PetDetailsScreen extends StatelessWidget {
                 child: _PetInfoSheet(
                   pet: pet,
                   scrollController: ScrollController(),
+                  onMessageTap: () => _openConversation(context),
                 ),
               ),
             ],
@@ -207,8 +244,13 @@ class _DetailHeroImage extends StatelessWidget {
 class _PetInfoSheet extends StatelessWidget {
   final Map<String, String> pet;
   final ScrollController scrollController;
+  final VoidCallback onMessageTap;
 
-  const _PetInfoSheet({required this.pet, required this.scrollController});
+  const _PetInfoSheet({
+    required this.pet,
+    required this.scrollController,
+    required this.onMessageTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -280,49 +322,27 @@ class _PetInfoSheet extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 22),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurface,
-                          side: BorderSide(color: theme.dividerColor),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        child: const Text(
-                          'Save',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: isDark
+                          ? AppColors.darkElevated
+                          : theme.colorScheme.primary,
+                      foregroundColor: isDark
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: isDark
-                              ? AppColors.darkElevated
-                              : theme.colorScheme.primary,
-                          foregroundColor: isDark
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        onPressed: () {},
-                        child: const Text(
-                          'Contact Owner',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ),
+                    onPressed: onMessageTap,
+                    child: const Text(
+                      'Message this owner',
+                      style: TextStyle(fontWeight: FontWeight.w900),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -418,40 +438,6 @@ class _ContactRow extends StatelessWidget {
             ],
           ),
         ),
-        const _CircleIcon(icon: Icons.call_rounded),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MessageThreadScreen(
-                thread: MessageThread(
-                  id: 'pet-${pet['ownerName'] ?? 'owner'}',
-                  participantId: pet['authorId'],
-                  participantName: pet['ownerName'] ?? 'Jade Green',
-                  title: '${pet['name'] ?? 'Pet'} adoption chat',
-                  subtitle: pet['ownerMeta'] ?? 'Pet owner for 3 years',
-                  unreadCount: 0,
-                  lastUpdatedLabel: 'Just now',
-                  messages: [
-                    ThreadMessage(
-                      text:
-                          'Hi! I would love to learn more about ${pet['name'] ?? 'your pet'}.',
-                      isMine: true,
-                      timestamp: 'Just now',
-                    ),
-                    const ThreadMessage(
-                      text: 'Absolutely. I can answer any questions you have.',
-                      isMine: false,
-                      timestamp: 'Just now',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          child: const _CircleIcon(icon: Icons.chat_bubble_rounded),
-        ),
       ],
     );
   }
@@ -523,34 +509,6 @@ class _GlassIcon extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: theme.colorScheme.onSurface, size: 22),
-      ),
-    );
-  }
-}
-
-class _CircleIcon extends StatelessWidget {
-  final IconData icon;
-
-  const _CircleIcon({required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkElevated : theme.colorScheme.primary,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        icon,
-        color: isDark
-            ? theme.colorScheme.onSurface
-            : theme.colorScheme.onPrimary,
-        size: 20,
       ),
     );
   }
