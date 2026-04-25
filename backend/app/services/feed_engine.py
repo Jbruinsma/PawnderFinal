@@ -1,13 +1,15 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import select, func, desc, and_, cast
-from sqlalchemy.orm import Session, defer
+from sqlalchemy import select, and_, func, cast, desc
+from sqlalchemy.orm import defer, Session
 
-from app.models import Post, PostLikes, PostComments, Community
-from app.models.community import user_communities
-from app.models.user import User
+from app.models import PostLikes, Post, PostComments, Community, user_communities, User
 
 
-def generate_algorithmic_feed(session: Session, current_user: User, coords):
+def generate_algorithmic_feed(
+        session: Session,
+        current_user: User,
+        coords
+):
     user_point = func.ST_SetSRID(func.ST_MakePoint(coords.longitude, coords.latitude), 4326)
 
     intersects = func.ST_Intersects(Community.geofence_boundary, user_point)
@@ -18,7 +20,17 @@ def generate_algorithmic_feed(session: Session, current_user: User, coords):
     ).correlate(Community).scalar_subquery()
 
     communities_stmt = (
-        select(Community)
+        select(
+            Community,
+            user_communities.c.user_id.isnot(None).label("is_member")
+        )
+        .outerjoin(
+            user_communities,
+            and_(
+                user_communities.c.community_id == Community.id,
+                user_communities.c.user_id == current_user.id
+            )
+        )
         .order_by(
             desc(intersects),
             comm_distance,
@@ -27,7 +39,18 @@ def generate_algorithmic_feed(session: Session, current_user: User, coords):
         .limit(10)
         .options(defer(Community.geofence_boundary))
     )
-    communities = session.execute(communities_stmt).scalars().all()
+
+    communities_results = session.execute(communities_stmt).all()
+
+    communities = [
+        {
+            "id": str(row.Community.id),
+            "name": str(row.Community.name),
+            "description": str(row.Community.description),
+            "is_member": bool(row.is_member)
+        }
+        for row in communities_results
+    ]
 
     like_count = select(func.count(PostLikes.id)).where(
         PostLikes.post_id == Post.id

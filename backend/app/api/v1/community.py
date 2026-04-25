@@ -9,21 +9,23 @@ from geoalchemy2.shape import from_shape
 from shapely.geometry import Polygon
 
 from app.core.security import get_current_user
-from app.crud.crud_post import create_post as db_create_post, bookmark_post_for_user, retrieve_posts_with_stats, \
-    retrieve_post_likes, get_post_stats_columns
+from app.crud.crud_post import (
+    create_post as db_create_post, bookmark_post_for_user,
+    retrieve_posts_with_stats, retrieve_post_likes, get_post_stats_columns
+)
 from app.database import get_db
-from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments, CommentLikes
+from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood, CommunityCreateRequest, CommunityCreateResponse
 from app.schemas.core import CoordinateSchema
-from app.schemas.post import CommunityPost, CommunityPostsResponse, PostCreationRequest, ExistingTagsResponseModel, \
-    ExistingTag
 from app.schemas.post import (
-    PostBookmarkResponseModel, PostLikeResponseModel, PostUnlikeResponseModel,
-    CommunityPostCommentRequest, PostComment, PostCommentsResponse
+    CommunityPost, CommunityPostsResponse, PostCreationRequest,
+    ExistingTagsResponseModel, ExistingTag, PostBookmarkResponseModel,
+    PostLikeResponseModel, PostUnlikeResponseModel, CommunityPostCommentRequest, PostComment
 )
 from app.services.feed_engine import generate_algorithmic_feed
 from app.utils.formatting_utils import format_post_with_stats
+
 
 router = APIRouter(
     prefix="/community",
@@ -39,40 +41,6 @@ def _build_square_boundary(latitude: float, longitude: float, half_side_degrees:
         (longitude - half_side_degrees, latitude + half_side_degrees),
         (longitude - half_side_degrees, latitude - half_side_degrees),
     ])
-
-
-def _serialize_neighborhoods_with_stats(session: Session, communities: list[Community]) -> list[Neighborhood]:
-    if not communities:
-        return []
-
-    community_ids = [community.id for community in communities]
-
-    post_counts = dict(
-        session.execute(
-            select(Post.community_id, func.count(Post.id))
-            .where(Post.community_id.in_(community_ids))
-            .group_by(Post.community_id)
-        ).all()
-    )
-
-    member_counts = dict(
-        session.execute(
-            select(user_communities.c.community_id, func.count(user_communities.c.user_id))
-            .where(user_communities.c.community_id.in_(community_ids))
-            .group_by(user_communities.c.community_id)
-        ).all()
-    )
-
-    return [
-        Neighborhood(
-            id=str(community.id),
-            name=str(community.name),
-            description=str(community.description or ""),
-            post_count=post_counts.get(community.id, 0),
-            member_count=member_counts.get(community.id, 0),
-        )
-        for community in communities
-    ]
 
 
 @router.get(
@@ -92,13 +60,15 @@ async def retrieve_initial_feed(
 
     return {
         "communities": communities,
-        "posts": [format_post_with_stats(row) for row in raw_posts]
+        "posts": [
+            format_post_with_stats(row) for row in raw_posts
+        ]
     }
 
 
 @router.get(
     path= "/neighborhoods",
-    summary="List available neighborhoods",
+    summary= "List available neighborhoods",
     response_model= NeighborhoodResponseModel
 )
 def get_neighborhoods(
@@ -106,37 +76,58 @@ def get_neighborhoods(
         current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ):
-    """
-    DFD Action: Reads from D4: Community & Neighborhood Records.
-
-    Task:
-    - Receive validated latitude/longitude from CoordinateSchema.
-    - Construct a PostGIS point using ST_SetSRID and ST_MakePoint.
-    - Query the `Community` table and sort by proximity to the user's location.
-    - Return a list of neighborhoods (id, name, description).
-    """
-
     user_point: str = func.ST_SetSRID(
         func.ST_MakePoint(coords.longitude, coords.latitude),
         4326
     )
 
-    communities = (
-        session.query(Community)
+    member_count_subq = select(func.count(user_communities.c.user_id)).where(
+        user_communities.c.community_id == Community.id
+    ).correlate(Community).scalar_subquery()
+
+    post_count_subq = select(func.count(Post.id)).where(
+        Post.community_id == Community.id
+    ).correlate(Community).scalar_subquery()
+
+    stmt = (
+        select(
+            Community,
+            user_communities.c.user_id.isnot(None).label("is_member"),
+            func.coalesce(member_count_subq, 0).label("member_count"),
+            func.coalesce(post_count_subq, 0).label("post_count")
+        )
+        .outerjoin(
+            user_communities,
+            and_(
+                user_communities.c.community_id == Community.id,
+                user_communities.c.user_id == current_user.id
+            )
+        )
         .order_by(func.ST_Distance(Community.geofence_boundary, user_point))
-        .all()
     )
+
+    results = session.execute(stmt).all()
+
+    serialized_neighborhoods = [
+        Neighborhood(
+            id=str(row.Community.id),
+            name=str(row.Community.name),
+            description=str(row.Community.description or ""),
+            post_count=int(row.post_count),
+            member_count=int(row.member_count),
+            is_member=bool(row.is_member)
+        ) for row in results
+    ]
 
     return NeighborhoodResponseModel(
-        neighborhoods=_serialize_neighborhoods_with_stats(session, communities)
+        neighborhoods=serialized_neighborhoods
     )
 
-
 @router.post(
-    path="/neighborhoods",
-    summary="Create a neighborhood",
-    response_model=CommunityCreateResponse,
-    status_code=status.HTTP_201_CREATED,
+    path= "/neighborhoods",
+    summary= "Create a neighborhood",
+    response_model= CommunityCreateResponse,
+    status_code= status.HTTP_201_CREATED,
 )
 def create_neighborhood(
         payload: CommunityCreateRequest,
@@ -169,15 +160,15 @@ def create_neighborhood(
 
     return CommunityCreateResponse(
         message=f"Created {community.name}",
-        community=Neighborhood(
-            id=str(community.id),
-            name=community.name,
-            description=community.description or "",
-            post_count=0,
-            member_count=1,
+        community= Neighborhood(
+            id= str(community.id),
+            name= community.name,
+            description= community.description or "",
+            post_count= 0,
+            member_count= 1,
+            is_member= True
         )
     )
-
 
 @router.post("/neighborhoods/{community_id}/join", summary="Join a neighborhood")
 def join_neighborhood(
@@ -242,9 +233,8 @@ def join_neighborhood(
         )
 
     return Message(
-        message= f"Successfully joined {community.name}"
+        message=f"Successfully joined {community.name}"
     )
-
 
 @router.get(
     path="/my-neighborhoods",
@@ -255,18 +245,40 @@ def get_my_neighborhoods(
         current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ):
-    user = (
-        session.query(User)
-        .filter(User.id == current_user.id)
-        .first()
+    member_count_subq = select(func.count(user_communities.c.user_id)).where(
+        user_communities.c.community_id == Community.id
+    ).correlate(Community).scalar_subquery()
+
+    post_count_subq = select(func.count(Post.id)).where(
+        Post.community_id == Community.id
+    ).correlate(Community).scalar_subquery()
+
+    stmt = (
+        select(
+            Community,
+            func.coalesce(member_count_subq, 0).label("member_count"),
+            func.coalesce(post_count_subq, 0).label("post_count")
+        )
+        .join(user_communities, user_communities.c.community_id == Community.id)
+        .where(user_communities.c.user_id == current_user.id)
     )
 
-    communities = user.joined_communities if user else []
+    results = session.execute(stmt).all()
+
+    serialized_neighborhoods = [
+        Neighborhood(
+            id=str(row.Community.id),
+            name=str(row.Community.name),
+            description=str(row.Community.description or ""),
+            post_count=int(row.post_count),
+            member_count=int(row.member_count),
+            is_member=True
+        ) for row in results
+    ]
 
     return NeighborhoodResponseModel(
-        neighborhoods=_serialize_neighborhoods_with_stats(session, communities)
+        neighborhoods=serialized_neighborhoods
     )
-
 
 @router.get(
     path="/posts",
@@ -308,7 +320,7 @@ async def get_posts(
     ]
 
     return CommunityPostsResponse(
-        posts= formatted_posts
+        posts=formatted_posts
     )
 
 @router.post("/posts", summary="Create a new community post")
@@ -331,12 +343,9 @@ def create_post(
             raise HTTPException(status_code=404, detail="Author not found")
         raise HTTPException(status_code=404, detail="Community not found")
 
-    # LOGIC TO BUILD: image upload to cloud storage → assign new_post.image_url
-    # LOGIC TO BUILD: dispatch neighborhood alert notifications
-
     new_post: Post = db_create_post(
-        session= session,
-        payload= payload
+        session=session,
+        payload=payload
     )
 
     return {
@@ -348,11 +357,8 @@ def create_post(
 @router.delete("/posts/{post_id}", summary="Delete a post")
 def delete_post(
     post_id: UUID,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db)
 ):
-    from app.models.user import bookmarks as bookmarks_table
-
     post = session.execute(
         select(Post).where(Post.id == post_id)
     ).scalars().first()
@@ -360,99 +366,20 @@ def delete_post(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    if post.author_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only delete your own posts")
-
-    comment_ids = [
-        row[0] for row in session.execute(
-            select(PostComments.id).where(PostComments.post_id == post_id)
-        ).all()
-    ]
-    if comment_ids:
-        session.execute(
-            delete(CommentLikes).where(CommentLikes.comment_id.in_(comment_ids))
-        )
-    session.execute(delete(PostComments).where(PostComments.post_id == post_id))
-    session.execute(delete(PostLikes).where(PostLikes.post_id == post_id))
-    session.execute(
-        bookmarks_table.delete().where(bookmarks_table.c.post_id == post_id)
-    )
     session.delete(post)
     session.commit()
     return {"status": "success", "message": "Post deleted"}
 
-# OLD CODE MIGHT REUSE DON'T DELETE
-
-# @router.post("/posts", summary="Create a new community post")
-# def create_post(
-#     post_creation_request: PostCreationRequest,
-#     session: Session = Depends(get_db)
-# ):
-#     results = session.execute(
-#         select(User, Community)
-#         .join(Community, Community.id == post_creation_request.community_id)
-#         .where(User.id == post_creation_request.author_id)
-#     ).first()
-#
-#     if not results:
-#         raise HTTPException(
-#             status_code=404,
-#             detail="Author or Community not found"
-#         )
-#
-#     author, community = results
-#
-#     existing_tags = session.execute(
-#         select(Tag).where(Tag.name.in_(post_creation_request.tags))
-#     ).scalars().all()
-#
-#     new_post = Post(
-#         author_id=post_creation_request.author_id,
-#         community_id=post_creation_request.community_id,
-#         post_type=post_creation_request.post_type,
-#         title=post_creation_request.title,
-#         description=post_creation_request.description,
-#         location=f"POINT({post_creation_request.location.longitude} {post_creation_request.location.latitude})",
-#         tags= list(existing_tags)
-#     )
-#
-#     # LOGIC TO BUILD: Handle image file validation and persistent cloud storage upload
-#     # LOGIC TO BUILD: Assign the resulting permanent URL to new_post.image_url
-#
-#     try:
-#         session.add(new_post)
-#         session.commit()
-#         session.refresh(new_post)
-#
-#         # LOGIC TO BUILD: Dispatch events for "Community Interaction Alerts" to notify nearby neighbors
-#
-#         return {
-#             "status": "success",
-#             "post_id": new_post.id,
-#             "message": "Post created successfully"
-#         }
-#     except Exception as e:
-#         session.rollback()
-#         raise HTTPException(status_code=500, detail="Database commit failed")
-
-
 @router.get(
     path="/posts/{post_id}",
     summary="Get a specific post",
-    response_model= Optional[CommunityPost]
+    response_model=Optional[CommunityPost]
 )
 def get_post(
         post_id: UUID,
         current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ) -> Optional[CommunityPost]:
-    """
-    DFD Action: Provides "Raw Post Data".
-    Task:
-    - Fetch the post from the database by ID.
-    - Include the author's basic info and the associated tags.
-    """
-
     stmt = (
         select(*get_post_stats_columns(current_user.id))
         .join(Post.author)
@@ -467,9 +394,9 @@ def get_post(
 
 
 @router.post(
-    path= "/posts/{post_id}/bookmark",
+    path="/posts/{post_id}/bookmark",
     summary="Bookmark a post",
-    response_model= PostBookmarkResponseModel
+    response_model=PostBookmarkResponseModel
 )
 def bookmark_post(
     post_id: UUID,
@@ -477,18 +404,20 @@ def bookmark_post(
     current_user: User = Depends(get_current_user)
 ):
     result: Optional[bool] = bookmark_post_for_user(
-        session= session,
-        post_id= post_id,
-        user_id= current_user.id
+        session=session,
+        post_id=post_id,
+        user_id=current_user.id
     )
 
     if result is None:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    return PostBookmarkResponseModel(
-        message= "Post bookmarked"
-    )
+    if not result:
+        raise HTTPException(status_code=409, detail="Post already bookmarked")
 
+    return PostBookmarkResponseModel(
+        message="Post bookmarked"
+    )
 
 @router.get(
     path="/tags",
@@ -507,15 +436,14 @@ def get_tags(
     db_tags = session.execute(stmt).scalars().all()
 
     return ExistingTagsResponseModel(
-        tags= [
+        tags=[
             ExistingTag(
-                tag_id= tag.id,
-                name= tag.name,
-                category= tag.category
+                tag_id=tag.id,
+                name=tag.name,
+                category=tag.category
             ) for tag in db_tags
         ]
     )
-
 
 @router.post(
     path="/posts/{post_id}/like",
@@ -539,20 +467,25 @@ async def like_post(
 
     if not post_exists:
         raise HTTPException(status_code=404, detail="Post not found")
+    if like_exists:
+        raise HTTPException(status_code=400, detail="You have already liked this post")
 
-    if not like_exists:
-        session.add(PostLikes(post_id=post_id, user_id=current_user.id))
-        session.commit()
-
-    return PostLikeResponseModel(
-        message= "Post liked successfully",
-        post_id= post_id,
-        new_like_count= retrieve_post_likes(
-            session= session,
-            post_id= post_id
-        )
+    new_like = PostLikes(
+        post_id=post_id,
+        user_id=current_user.id
     )
 
+    session.add(new_like)
+    session.commit()
+
+    return PostLikeResponseModel(
+        message="Post liked successfully",
+        post_id=post_id,
+        new_like_count=retrieve_post_likes(
+            session=session,
+            post_id=post_id
+        )
+    )
 
 @router.delete(
     path="/posts/{post_id}/like",
@@ -563,28 +496,31 @@ async def unlike_post(
         session: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    session.execute(
-        delete(PostLikes).where(
-            PostLikes.post_id == post_id,
-            PostLikes.user_id == current_user.id,
-        )
+    stmt = (
+        delete(PostLikes)
+        .where(PostLikes.post_id == post_id, PostLikes.user_id == current_user.id)
     )
+
+    result = session.execute(stmt)
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Like not found")
+
     session.commit()
 
     return PostUnlikeResponseModel(
-        message= "Post unliked successfully",
-        post_id= post_id,
-        new_like_count= retrieve_post_likes(
-            session= session,
-            post_id= post_id
+        message="Post unliked successfully",
+        post_id=post_id,
+        new_like_count=retrieve_post_likes(
+            session=session,
+            post_id=post_id
         )
     )
-
 
 @router.post(
     path="/posts/{post_id}/comment",
     summary="Add a comment to a post",
-    response_model= PostComment
+    response_model=PostComment
 )
 async def add_comment(
         post_id: UUID,
@@ -612,10 +548,10 @@ async def add_comment(
         raise HTTPException(status_code=404, detail="Parent comment not found")
 
     new_comment = PostComments(
-        post_id= post_id,
-        user_id= current_user.id,
-        replying_to_id= new_comment_request.replying_to_id,
-        content= new_comment_request.content
+        post_id=post_id,
+        user_id=current_user.id,
+        replying_to_id=new_comment_request.replying_to_id,
+        content=new_comment_request.content
     )
 
     session.add(new_comment)
@@ -623,155 +559,13 @@ async def add_comment(
     session.refresh(new_comment)
 
     return PostComment(
-        comment_id= new_comment.id,
-        post_id= post_id,
-        user_id= current_user.id,
-        author_name= current_user.full_name,
-        replying_to_id= new_comment_request.replying_to_id,
-        content= new_comment_request.content,
-        created_at= new_comment.created_at.isoformat(),
-        like_count= 0,
-        you_liked= False
-    )
-
-
-@router.get(
-    path="/posts/{post_id}/comments",
-    summary="List comments for a post",
-    response_model=PostCommentsResponse
-)
-async def get_comments(
-        post_id: UUID,
-        session: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    post_exists = session.execute(
-        select(Post.id).where(Post.id == post_id)
-    ).scalar()
-    if not post_exists:
-        raise HTTPException(status_code=404, detail="Post not found")
-
-    like_count_sub = (
-        select(func.count(CommentLikes.id))
-        .where(CommentLikes.comment_id == PostComments.id)
-        .correlate(PostComments)
-        .scalar_subquery()
-    )
-    you_liked_sub = (
-        select(CommentLikes.id)
-        .where(
-            and_(
-                CommentLikes.comment_id == PostComments.id,
-                CommentLikes.user_id == current_user.id,
-            )
-        )
-        .correlate(PostComments)
-        .exists()
-    )
-
-    stmt = (
-        select(
-            PostComments,
-            func.coalesce(like_count_sub, 0).label("like_count"),
-            you_liked_sub.label("you_liked"),
-            User.full_name.label("author_name"),
-        )
-        .join(User, User.id == PostComments.user_id)
-        .where(PostComments.post_id == post_id)
-        .order_by(PostComments.created_at.asc())
-    )
-
-    rows = session.execute(stmt).all()
-
-    return PostCommentsResponse(
-        comments=[
-            PostComment(
-                comment_id=row.PostComments.id,
-                post_id=row.PostComments.post_id,
-                user_id=row.PostComments.user_id,
-                author_name=row.author_name or "Member",
-                replying_to_id=row.PostComments.replying_to_id,
-                content=row.PostComments.content,
-                created_at=row.PostComments.created_at.isoformat(),
-                like_count=row.like_count,
-                you_liked=row.you_liked,
-            )
-            for row in rows
-        ]
-    )
-
-
-@router.post(
-    path="/posts/{post_id}/comments/{comment_id}/like",
-    summary="Like a comment",
-    response_model=PostLikeResponseModel,
-)
-async def like_comment(
-        post_id: UUID,
-        comment_id: UUID,
-        session: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-):
-    comment = session.execute(
-        select(PostComments).where(
-            PostComments.id == comment_id,
-            PostComments.post_id == post_id,
-        )
-    ).scalar_one_or_none()
-    if not comment:
-        raise HTTPException(status_code=404, detail="Comment not found")
-
-    existing = session.execute(
-        select(CommentLikes.id).where(
-            CommentLikes.comment_id == comment_id,
-            CommentLikes.user_id == current_user.id,
-        )
-    ).scalar()
-
-    if not existing:
-        session.add(CommentLikes(comment_id=comment_id, user_id=current_user.id))
-        session.commit()
-
-    new_count = session.execute(
-        select(func.count(CommentLikes.id)).where(CommentLikes.comment_id == comment_id)
-    ).scalar() or 0
-
-    return PostLikeResponseModel(
-        message="Comment liked",
         post_id=post_id,
-        new_like_count=new_count,
+        user_id=current_user.id,
+        replying_to_id=new_comment_request.replying_to_id,
+        content=new_comment_request.content,
+        created_at=new_comment.created_at.isoformat(),
+        you_liked=False
     )
-
-
-@router.delete(
-    path="/posts/{post_id}/comments/{comment_id}/like",
-    summary="Unlike a comment",
-    response_model=PostUnlikeResponseModel,
-)
-async def unlike_comment(
-        post_id: UUID,
-        comment_id: UUID,
-        session: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-):
-    session.execute(
-        delete(CommentLikes).where(
-            CommentLikes.comment_id == comment_id,
-            CommentLikes.user_id == current_user.id,
-        )
-    )
-    session.commit()
-
-    new_count = session.execute(
-        select(func.count(CommentLikes.id)).where(CommentLikes.comment_id == comment_id)
-    ).scalar() or 0
-
-    return PostUnlikeResponseModel(
-        message="Comment unliked",
-        post_id=post_id,
-        new_like_count=new_count,
-    )
-
 
 @router.get("/users/{user_id}/posts", summary="Get posts by a user")
 def get_user_posts(
@@ -791,7 +585,6 @@ def get_user_posts(
     return CommunityPostsResponse(
         posts=[format_post_with_stats(row) for row in rows]
     )
-
 
 @router.get("/bookmarks", summary="Get bookmarked posts for current user")
 def get_user_bookmarks(
@@ -813,7 +606,6 @@ def get_user_bookmarks(
     return CommunityPostsResponse(
         posts=[format_post_with_stats(row) for row in rows]
     )
-
 
 @router.delete("/posts/{post_id}/bookmark", summary="Remove a bookmark")
 def remove_bookmark(
