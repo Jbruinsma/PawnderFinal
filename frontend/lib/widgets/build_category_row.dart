@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 
+IconData _getIconForCategory(String category) {
+  final lower = category.toLowerCase();
+  if (lower.contains('dog')) return Icons.pets_rounded;
+  if (lower.contains('cat')) return Icons.cruelty_free_rounded;
+  if (lower.contains('bird')) return Icons.flutter_dash_rounded;
+  if (lower.contains('small')) return Icons.emoji_nature_rounded;
+  if (lower == 'all') return Icons.grid_view_rounded;
+  return Icons.sell_rounded;
+}
+
 Widget buildCategoryRow({
   required String selectedCategory,
   required ValueChanged<String> onCategoryTap,
+  required List<String> categories,
 }) {
-  final avatars = [
-    {'id': 'dog', 'label': 'Dogs', 'icon': Icons.pets_rounded},
-    {'id': 'cat', 'label': 'Cats', 'icon': Icons.cruelty_free_rounded},
-    {'id': 'bird', 'label': 'Birds', 'icon': Icons.flutter_dash_rounded},
-    {'id': 'small', 'label': 'Small pets', 'icon': Icons.emoji_nature_rounded},
-    {'id': 'all', 'label': 'All pets', 'icon': Icons.grid_view_rounded},
+  final displayCategories = [
+    'all',
+    ...categories.where((c) => c.toLowerCase() != 'all'),
   ];
 
   return LayoutBuilder(
@@ -21,13 +29,12 @@ Widget buildCategoryRow({
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            for (var i = 0; i < avatars.length; i++) ...[
+            for (var i = 0; i < displayCategories.length; i++) ...[
               Builder(
                 builder: (context) {
-                  final avatar = avatars[i];
-                  final id = avatar['id']! as String;
-                  final label = avatar['label']! as String;
-                  final icon = avatar['icon']! as IconData;
+                  final id = displayCategories[i];
+                  final label = id == 'all' ? 'All pets' : id;
+                  final icon = _getIconForCategory(id);
                   final isSelected = selectedCategory == id;
 
                   return SizedBox(
@@ -82,7 +89,7 @@ Widget buildCategoryRow({
                   );
                 },
               ),
-              if (i < avatars.length - 1) const SizedBox(width: 8),
+              if (i < displayCategories.length - 1) const SizedBox(width: 8),
             ],
           ],
         ),

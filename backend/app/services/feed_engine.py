@@ -1,6 +1,6 @@
 from geoalchemy2 import Geometry
 from sqlalchemy import select, and_, func, cast, desc
-from sqlalchemy.orm import defer, Session
+from sqlalchemy.orm import defer, Session, joinedload
 
 from app.models import PostLikes, Post, PostComments, Community, user_communities, User
 
@@ -84,11 +84,15 @@ def generate_algorithmic_feed(
             func.ST_Y(cast(Post.location, Geometry)).label("lat")
         )
         .join(Post.author)
+        .options(
+            joinedload(Post.tags),
+            defer(Post.location)
+        )
         .where(post_distance < 80467)
         .order_by(desc(score))
         .limit(25)
-        .options(defer(Post.location))
     )
-    raw_posts = session.execute(posts_stmt).all()
+
+    raw_posts = session.execute(posts_stmt).unique().all()
 
     return communities, raw_posts

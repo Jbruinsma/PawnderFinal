@@ -34,7 +34,7 @@ Widget buildSearch({
                         fontSize: 15,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Search for pets...',
+                        hintText: 'Search for...',
                         hintStyle: TextStyle(
                           color: theme.colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w500,

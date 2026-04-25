@@ -58,8 +58,15 @@ async def retrieve_initial_feed(
         coords= coords
     )
 
+    applicable_tags = {
+        tag.name
+        for row in raw_posts
+        for tag in row.Post.tags
+    }
+
     return {
         "communities": communities,
+        "applicable_tags": list(applicable_tags),
         "posts": [
             format_post_with_stats(row) for row in raw_posts
         ]
