@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/services/api_client.dart';
 import 'package:pawnder_app/services/location_service.dart';
@@ -11,8 +12,16 @@ import 'package:pawnder_app/widgets/build_header.dart';
 class ListingScreen extends StatefulWidget {
   final String? authorId;
   final String? communityId;
+  final String? initialCommunityId;
+  final List<Community> communities;
 
-  const ListingScreen({super.key, this.authorId, this.communityId});
+  const ListingScreen({
+    super.key,
+    this.authorId,
+    this.communityId,
+    this.initialCommunityId,
+    this.communities = const [],
+  });
 
   @override
   State<ListingScreen> createState() => _ListingScreenState();
@@ -29,6 +38,7 @@ class _ListingScreenState extends State<ListingScreen> {
   final List<String> _selectedTags = [];
   XFile? _selectedImage;
   bool _isSubmitting = false;
+  String? _selectedCommunityId;
 
   static const _defaultLatitude = 40.7128;
   static const _defaultLongitude = -74.0060;
@@ -43,6 +53,18 @@ class _ListingScreenState extends State<ListingScreen> {
     'Dog',
     'Queens',
   ];
+
+  bool get _shouldShowCommunityPicker =>
+      widget.communityId == null && widget.communities.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCommunityId =
+        widget.communityId ??
+        widget.initialCommunityId ??
+        (widget.communities.isNotEmpty ? widget.communities.first.id : null);
+  }
 
   @override
   void dispose() {
@@ -78,12 +100,10 @@ class _ListingScreenState extends State<ListingScreen> {
     }
 
     final authorId = widget.authorId;
-    final communityId = widget.communityId;
+    final communityId = widget.communityId ?? _selectedCommunityId;
 
     if (authorId == null || communityId == null) {
-      _showMessage(
-        'Close this screen, log in, and load a neighborhood before posting.',
-      );
+      _showMessage('Choose a community before posting.');
       return;
     }
 
@@ -199,6 +219,35 @@ class _ListingScreenState extends State<ListingScreen> {
                 icon: Icons.add_location_alt_outlined,
               ),
               const SizedBox(height: 28),
+              if (_shouldShowCommunityPicker) ...[
+                _InputCard(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedCommunityId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Post in community',
+                      border: InputBorder.none,
+                    ),
+                    items: widget.communities
+                        .map(
+                          (community) => DropdownMenuItem<String>(
+                            value: community.id,
+                            child: Text(
+                              community.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCommunityId = value;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
               _InputCard(
                 child: TextField(
                   controller: _titleController,

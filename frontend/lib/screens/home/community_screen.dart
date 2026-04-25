@@ -7,6 +7,7 @@ class CommunityScreen extends StatefulWidget {
   final String? selectedCommunityName;
   final bool isLoading;
   final VoidCallback onCreateCommunityTap;
+  final VoidCallback onCreatePostTap;
   final ValueChanged<Community> onCommunityTap;
 
   const CommunityScreen({
@@ -15,6 +16,7 @@ class CommunityScreen extends StatefulWidget {
     this.selectedCommunityName,
     this.isLoading = false,
     required this.onCreateCommunityTap,
+    required this.onCreatePostTap,
     required this.onCommunityTap,
   });
 
@@ -23,6 +25,24 @@ class CommunityScreen extends StatefulWidget {
 }
 
 class _CommunityScreenState extends State<CommunityScreen> {
+  bool _isCreateMenuExpanded = false;
+
+  void _toggleCreateMenu() {
+    setState(() {
+      _isCreateMenuExpanded = !_isCreateMenuExpanded;
+    });
+  }
+
+  void _handleNewPostTap() {
+    setState(() => _isCreateMenuExpanded = false);
+    widget.onCreatePostTap();
+  }
+
+  void _handleNewCommunityTap() {
+    setState(() => _isCreateMenuExpanded = false);
+    widget.onCreateCommunityTap();
+  }
+
   void _showAllNeighborhoods() {
     showModalBottomSheet(
       context: context,
@@ -126,7 +146,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           else
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.only(bottom: 96),
+                padding: const EdgeInsets.only(bottom: 148),
                 itemCount: widget.communities.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 14),
@@ -163,17 +183,90 @@ class _CommunityScreenState extends State<CommunityScreen> {
             padding: const EdgeInsets.only(top: 12, bottom: 12),
             child: Align(
               alignment: Alignment.centerRight,
-              child: IconButton.filled(
-                onPressed: widget.onCreateCommunityTap,
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  elevation: theme.brightness == Brightness.dark ? 0 : 2,
-                  shadowColor: const Color(0x18000000),
-                  padding: const EdgeInsets.all(14),
-                ),
-                icon: const Icon(Icons.add_rounded, size: 26),
-                tooltip: 'Create community',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: !_isCreateMenuExpanded
+                        ? const SizedBox.shrink()
+                        : Column(
+                            key: const ValueKey('community-create-menu'),
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: _handleNewPostTap,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: theme.colorScheme.onPrimary,
+                                  elevation: theme.brightness == Brightness.dark
+                                      ? 0
+                                      : 2,
+                                  shadowColor: const Color(0x18000000),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.post_add_rounded),
+                                label: const Text(
+                                  'NEW POST',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              FilledButton.tonalIcon(
+                                onPressed: _handleNewCommunityTap,
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.group_add_rounded),
+                                label: const Text(
+                                  'NEW COMMUNITY',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          ),
+                  ),
+                  IconButton.filled(
+                    onPressed: _toggleCreateMenu,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.onPrimary,
+                      elevation: theme.brightness == Brightness.dark ? 0 : 2,
+                      shadowColor: const Color(0x18000000),
+                      padding: const EdgeInsets.all(14),
+                    ),
+                    icon: Icon(
+                      _isCreateMenuExpanded
+                          ? Icons.close_rounded
+                          : Icons.add_rounded,
+                      size: 26,
+                    ),
+                    tooltip: _isCreateMenuExpanded
+                        ? 'Close create menu'
+                        : 'Open create menu',
+                  ),
+                ],
               ),
             ),
           ),
