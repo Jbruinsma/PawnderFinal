@@ -11,8 +11,8 @@ class CommunityService {
     required double latitude,
     required double longitude,
   }) async {
-    final response = await _apiClient.dio.get<Map<String, dynamic>>(
-      'community/neighborhoods',
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/community/neighborhoods',
       queryParameters: {'latitude': latitude, 'longitude': longitude},
     );
 
@@ -25,8 +25,8 @@ class CommunityService {
   }
 
   Future<List<Community>> getMyNeighborhoods() async {
-    final response = await _apiClient.dio.get<Map<String, dynamic>>(
-      'community/my-neighborhoods',
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/community/my-neighborhoods',
     );
 
     final neighborhoods =
@@ -37,9 +37,17 @@ class CommunityService {
         .toList();
   }
 
+  Future<Community> getCommunityById({required String communityId}) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/community/neighborhoods/$communityId',
+    );
+    final communityJson = response.data?['community'] as Map<String, dynamic>? ?? response.data ?? const {};
+    return Community.fromJson(communityJson);
+  }
+
   Future<void> joinNeighborhood({required String communityId}) async {
-    await _apiClient.dio.post<void>(
-      'community/neighborhoods/$communityId/join',
+    await _apiClient.post<void>(
+      '/community/neighborhoods/$communityId/join',
     );
   }
 
@@ -49,8 +57,8 @@ class CommunityService {
     required double latitude,
     required double longitude,
   }) async {
-    final response = await _apiClient.dio.post<Map<String, dynamic>>(
-      'community/neighborhoods',
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/community/neighborhoods',
       data: {
         'name': name,
         'description': description,

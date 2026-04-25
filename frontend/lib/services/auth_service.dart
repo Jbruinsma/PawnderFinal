@@ -13,8 +13,8 @@ class AuthService {
     required String password,
     String role = 'Community User',
   }) async {
-    await _apiClient.dio.post(
-      'auth/register',
+    await _apiClient.post(
+      '/auth/register',
       data: {
         'role': role,
         'email': email,
@@ -25,9 +25,12 @@ class AuthService {
   }
 
   Future<void> login({required String email, required String password}) async {
-    final response = await _apiClient.dio.post<Map<String, dynamic>>(
-      'auth/login',
-      data: {'email': email, 'password': password},
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/auth/login',
+      data: {
+        'email': email,
+        'password': password,
+      },
     );
 
     final token = response.data?['access_token'] as String?;
@@ -40,16 +43,20 @@ class AuthService {
   }
 
   Future<CurrentUser> getCurrentUser() async {
-    final response = await _apiClient.dio.get<Map<String, dynamic>>(
-      'auth/me',
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/auth/me',
     );
 
-    return CurrentUser.fromJson(response.data ?? const {});
+    if (response.data == null) {
+      throw Exception('Failed to load user profile data.');
+    }
+
+    return CurrentUser.fromJson(response.data!);
   }
 
   Future<void> updateLocation(PostLocation location) async {
     await _apiClient.dio.put(
-      'auth/me/location',
+      '/auth/me/location',
       data: location.toJson(),
     );
   }

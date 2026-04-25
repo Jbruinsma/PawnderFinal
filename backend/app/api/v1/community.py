@@ -14,7 +14,7 @@ from app.crud.crud_post import (
     retrieve_posts_with_stats, retrieve_post_likes, get_post_stats_columns
 )
 from app.database import get_db
-from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments
+from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments, CommentLikes
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood, CommunityCreateRequest, CommunityCreateResponse
 from app.schemas.core import CoordinateSchema
@@ -524,8 +524,77 @@ async def unlike_post(
         )
     )
 
+
+@router.get(
+    path="/posts/{post_id}/comments",
+    summary="Get comments for a post"
+)
+async def get_post_comments(
+        post_id: UUID,
+        limit: int = Query(default=25, ge=1),
+        offset: int = Query(default=1, ge=1),
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    if limit < offset:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="limit cannot be less than offset"
+        )
+
+    like_count_sub = (
+        select(func.count(CommentLikes.id))
+        .where(CommentLikes.comment_id == PostComments.id)
+        .correlate(PostComments)
+        .scalar_subquery()
+    )
+
+    you_liked_sub = (
+        select(CommentLikes.id)
+        .where(
+            and_(
+                CommentLikes.comment_id == PostComments.id,
+                CommentLikes.user_id == current_user.id
+            )
+        )
+        .correlate(PostComments)
+        .exists()
+    )
+
+    stmt = (
+        select(
+            PostComments,
+            func.coalesce(like_count_sub, 0).label("like_count"),
+            you_liked_sub.label("you_liked")
+        )
+        .join(PostComments.user)
+        .where(PostComments.post_id == post_id)
+        .order_by(PostComments.created_at.desc())
+        .offset(offset - 1)
+        .limit(limit)
+    )
+
+    result = session.execute(stmt).all()
+
+    return {
+        "comments": [
+            PostComment(
+                comment_id=row.PostComments.id,
+                post_id=row.PostComments.post_id,
+                user_id=row.PostComments.user_id,
+                author_name=row.PostComments.user.full_name,
+                replying_to_id=row.PostComments.replying_to_id,
+                content=row.PostComments.content,
+                created_at=row.PostComments.created_at,
+                like_count=row.like_count,
+                you_liked=row.you_liked
+            ) for row in result
+        ]
+    }
+
+
 @router.post(
-    path="/posts/{post_id}/comment",
+    path="/posts/{post_id}/comments",
     summary="Add a comment to a post",
     response_model=PostComment
 )
@@ -566,13 +635,29 @@ async def add_comment(
     session.refresh(new_comment)
 
     return PostComment(
-        post_id=post_id,
-        user_id=current_user.id,
-        replying_to_id=new_comment_request.replying_to_id,
-        content=new_comment_request.content,
-        created_at=new_comment.created_at.isoformat(),
-        you_liked=False
+        comment_id= new_comment.id,
+        post_id= post_id,
+        user_id= current_user.id,
+        replying_to_id= new_comment_request.replying_to_id,
+        content= new_comment_request.content,
+        created_at= new_comment.created_at,
+        you_liked= False
     )
+
+
+@router.post(
+    path= "/posts/{post_id}/comments/{comment_id}/like"
+)
+async def like_comment():
+    pass
+
+
+@router.delete(
+    path= "/posts/{post_id}/comments/{comment_id}/like"
+)
+async def unlike_comment():
+    pass
+
 
 @router.get("/users/{user_id}/posts", summary="Get posts by a user")
 def get_user_posts(

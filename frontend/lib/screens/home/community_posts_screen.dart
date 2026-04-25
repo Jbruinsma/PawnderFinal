@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community_post.dart';
+import 'package:pawnder_app/screens/home/unified_post_detail_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
 import 'package:pawnder_app/services/api_client.dart';
 import 'package:pawnder_app/services/post_service.dart';
@@ -284,28 +285,31 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                   searchQuery: _searchQuery,
                   currentUserId: _currentUserId,
                   onPostTap: (postMap) {
-                    final postId = postMap['id'];
-                    if (postId == null) {
-                      return;
-                    }
-                    final selectedIndex = _posts.indexWhere(
-                      (item) => item.id == postId,
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                      ),
                     );
-                    if (selectedIndex != -1) {
-                      widget.onPostTap(_posts[selectedIndex]);
-                    }
-                  },
-                  onCommentTap: _openCommentsSheet,
+                    },
+                  onCommentTap: (postMap) async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                      ),
+                    );
+                    },
                   onLikeTap: _togglePostLike,
                   onDeleteTap: (postMap) async {
                     final postId = postMap['id'];
                     if (postId == null) return;
                     final index = _posts.indexWhere(
-                      (item) => item.id == postId,
+                          (item) => item.id == postId,
                     );
                     if (index == -1) return;
                     await _confirmDeletePost(_posts[index]);
-                  },
+                    },
                 ),
               ),
               Padding(

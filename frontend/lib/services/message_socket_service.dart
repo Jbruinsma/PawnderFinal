@@ -7,6 +7,13 @@ import 'package:pawnder_app/services/api_client.dart';
 import 'package:pawnder_app/services/auth_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+class MessageSocketEvent {
+  final String type;
+  final ThreadMessage? message;
+
+  MessageSocketEvent({required this.type, this.message});
+}
+
 class MessageSocketService {
   factory MessageSocketService({
     ApiClient? apiClient,
@@ -65,6 +72,9 @@ class MessageSocketService {
         onError: (_) => _resetChannel(),
         cancelOnError: true,
       );
+    } catch (e) {
+      debugPrint('WebSocket connection error: $e');
+      _resetChannel();
     } finally {
       _isConnecting = false;
     }
@@ -79,13 +89,17 @@ class MessageSocketService {
   Uri _buildSocketUri(String token) {
     final apiUri = Uri.parse(ApiClient.baseUrl);
     final scheme = apiUri.scheme == 'https' ? 'wss' : 'ws';
-    final normalizedPath = apiUri.path.endsWith('/')
-        ? apiUri.path.substring(0, apiUri.path.length - 1)
-        : apiUri.path;
+
+    var path = apiUri.path;
+    if (path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+
+    final wsPath = '$path/messaging/ws';
 
     return apiUri.replace(
       scheme: scheme,
-      path: '$normalizedPath/messaging/ws',
+      path: wsPath.startsWith('/') ? wsPath : '/$wsPath',
       queryParameters: {'token': token},
     );
   }

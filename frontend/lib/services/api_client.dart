@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiClient {
@@ -22,11 +23,20 @@ class ApiClient {
         },
       ),
     );
+    
+    if (kDebugMode) {
+      this.dio.interceptors.add(LogInterceptor(
+        requestHeader: true,
+        requestBody: true,
+        responseBody: true,
+        error: true,
+      ));
+    }
   }
 
   static const baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api/v1/',
+    defaultValue: 'http://localhost:8000/api/v1',
   );
 
   static const accessTokenKey = 'auth_token';
@@ -35,21 +45,21 @@ class ApiClient {
   final FlutterSecureStorage storage;
 
   Future<String?> getToken() => storage.read(key: accessTokenKey);
-
   Future<void> saveToken(String token) => storage.write(key: accessTokenKey, value: token);
-
   Future<void> clearToken() => storage.delete(key: accessTokenKey);
 
+  String _cleanPath(String path) => path.startsWith('/') ? path : '/$path';
+
   Future<Response<T>> get<T>(String path, {Map<String, dynamic>? queryParameters}) {
-    return dio.get<T>(path, queryParameters: queryParameters);
+    return dio.get<T>(_cleanPath(path), queryParameters: queryParameters);
   }
 
   Future<Response<T>> post<T>(String path, {dynamic data}) {
-    return dio.post<T>(path, data: data);
+    return dio.post<T>(_cleanPath(path), data: data);
   }
 
   Future<Response<T>> delete<T>(String path, {dynamic data}) {
-    return dio.delete<T>(path, data: data);
+    return dio.delete<T>(_cleanPath(path), data: data);
   }
 
   String messageForError(Object error) {
@@ -59,7 +69,7 @@ class ApiClient {
         return data['detail'].toString();
       }
       if (error.type == DioExceptionType.connectionError) {
-        return 'Could not connect to the backend at $baseUrl.';
+        return 'Could not connect to the backend.';
       }
     }
     return 'Something went wrong. Please try again.';
