@@ -646,17 +646,77 @@ async def add_comment(
 
 
 @router.post(
-    path= "/posts/{post_id}/comments/{comment_id}/like"
+    path= "/posts/{post_id}/comments/{comment_id}/like",
+    summary="Like a comment"
 )
-async def like_comment():
-    pass
+async def like_comment(
+        post_id: UUID,
+        comment_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    stmt = (
+        select(PostComments)
+        .join(Post, PostComments.post_id == Post.id)
+        .where(
+            Post.id == post_id,
+            PostComments.id == comment_id
+        )
+    )
+
+    result = session.execute(stmt)
+    comment = result.scalars().first()
+
+    if not comment:
+        raise HTTPException(
+            status_code=404,
+            detail="Comment not found or does not belong to the specified post"
+        )
+
+    comment_like = CommentLikes(
+        comment_id=comment_id,
+        user_id=current_user.id
+    )
+
+    session.add(comment_like)
+    session.commit()
+
+    return {"status": "success"}
 
 
 @router.delete(
-    path= "/posts/{post_id}/comments/{comment_id}/like"
+    path="/posts/{post_id}/comments/{comment_id}/like"
 )
-async def unlike_comment():
-    pass
+async def unlike_comment(
+        post_id: UUID,
+        comment_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    stmt = (
+        select(CommentLikes)
+        .join(PostComments, CommentLikes.comment_id == PostComments.id)
+        .join(Post, PostComments.post_id == Post.id)
+        .where(
+            Post.id == post_id,
+            PostComments.id == comment_id,
+            CommentLikes.user_id == current_user.id
+        )
+    )
+
+    result = session.execute(stmt)
+    like_record = result.scalars().first()
+
+    if not like_record:
+        raise HTTPException(
+            status_code=404,
+            detail="Like record not found for this comment and post"
+        )
+
+    session.delete(like_record)
+    session.commit()
+
+    return {"status": "success"}
 
 
 @router.get("/users/{user_id}/posts", summary="Get posts by a user")
