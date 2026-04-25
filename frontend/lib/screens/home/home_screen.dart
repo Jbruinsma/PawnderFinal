@@ -19,8 +19,12 @@ import 'package:pawnder_app/services/feed_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_bottom_nav.dart';
 import 'package:pawnder_app/widgets/build_category_row.dart';
+import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/widgets/build_pet_list.dart';
 import 'package:pawnder_app/widgets/build_search.dart';
+import 'package:pawnder_app/services/message_service.dart';
+import 'package:pawnder_app/services/message_socket_service.dart';
+import 'dart:async';
 
 const List<Map<String, String>> _staticPets = [];
 
@@ -40,6 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _locationService = LocationService();
   final _postService = PostService();
   final _feedService = FeedService();
+  final _messageService = MessageService();
+  final _messageSocketService = MessageSocketService();
 
   late int _selectedNavIndex;
   String _selectedCategory = 'all';
@@ -50,49 +56,134 @@ class _HomeScreenState extends State<HomeScreen> {
   Set<String> _joinedCommunityIds = const {};
   bool _isLoadingCommunityPosts = false;
   bool _shouldShowFallbackPets = true;
+  int _messageBadgeCount = 0;
+  StreamSubscription? _messageSubscription;
+  Future<PostLocation?>? _locationFuture;
 
   static const _defaultLatitude = 40.7128;
   static const _defaultLongitude = -74.0060;
 
   List<Map<String, String>> _nearbyPets = [];
+  List<CommunityPost> _recommendedPosts = const [];
 
   List<Map<String, String>> get _visiblePets =>
       _shouldShowFallbackPets ? _staticPets : _nearbyPets;
-
-  List<Community> _mergeCommunities(List<List<Community>> groups) {
-    final communitiesById = <String, Community>{};
-    for (final group in groups) {
-      for (final community in group) {
-        communitiesById.putIfAbsent(community.id, () => community);
-      }
-    }
-    return communitiesById.values.toList();
-  }
 
   @override
   void initState() {
     super.initState();
     _selectedNavIndex = widget.initialNavIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadCommunityData();
+      _initializeHome();
     });
   }
 
-  Future<void> _loadCommunityData() async {
-    setState(() => _isLoadingCommunityPosts = true);
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    super.dispose();
+  }
 
+  Future<void> _connectMessageSocket() async {
+    await _messageSocketService.connect();
+    _messageSubscription ??= _messageSocketService.incomingEvents.listen((
+      event,
+    ) {
+      final message = event.message;
+      if (!mounted || message == null) {
+        return;
+      }
+      if (event.type == 'message_created' &&
+          !message.isMine &&
+          _selectedNavIndex != 2) {
+        setState(() => _messageBadgeCount += 1);
+      }
+    });
+  }
+
+  Future<void> _initializeHome() async {
     try {
       _currentUser = await _authService.getCurrentUser();
     } catch (_) {
       _currentUser = null;
     }
 
+    if (_selectedNavIndex == 0 && _currentUser != null) {
+      final shouldPrompt = await _locationService
+          .shouldPromptForFirstHomeLaunch(userId: _currentUser!.id);
+      if (shouldPrompt) {
+        _locationFuture = _requestLocationAsSoonAsPossible(
+          userId: _currentUser!.id,
+        );
+      }
+    }
+
+    _loadCommunityData();
+    _refreshMessageBadge();
+    _connectMessageSocket();
+  }
+
+  Future<void> _refreshMessageBadge() async {
+    try {
+      final threads = await _messageService.getThreads();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _messageBadgeCount = threads.fold<int>(
+          0,
+          (sum, thread) => sum + thread.unreadCount,
+        );
+      });
+    } catch (_) {}
+  }
+
+  void _handleNavTap(int index) {
+    setState(() {
+      _selectedNavIndex = index;
+      if (index == 2) {
+        _messageBadgeCount = 0;
+      }
+    });
+
+    if (index == 0 && _locationFuture == null) {
+      final currentUser = _currentUser;
+      if (currentUser != null) {
+        _locationFuture = _requestLocationAsSoonAsPossible(
+          userId: currentUser.id,
+        );
+      }
+      _loadCommunityData();
+    }
+
+    if (index != 2) {
+      _refreshMessageBadge();
+    }
+  }
+
+  Future<PostLocation?> _requestLocationAsSoonAsPossible({
+    required String userId,
+  }) async {
+    try {
+      final location = await _locationService.requestAndSaveCurrentLocation();
+      await _locationService.markHomeLocationPromptSeen(userId: userId);
+      return location;
+    } catch (error) {
+      debugPrint('Early location request failed: $error');
+      return null;
+    }
+  }
+
+  Future<void> _loadCommunityData() async {
+    setState(() => _isLoadingCommunityPosts = true);
+
     double lat = _defaultLatitude;
     double lon = _defaultLongitude;
 
     try {
-      final currentLocation = await _locationService
-          .requestAndSaveCurrentLocation();
+      final currentLocation = _locationFuture == null || _currentUser == null
+          ? null
+          : await _locationFuture;
       if (currentLocation != null) {
         lat = currentLocation.latitude;
         lon = currentLocation.longitude;
@@ -101,13 +192,20 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('Location request failed (using defaults): $e');
     }
 
-    List<Community> visibleCommunities = const [];
+    if (_currentUser == null) {
+      try {
+        _currentUser = await _authService.getCurrentUser();
+      } catch (_) {
+        _currentUser = null;
+      }
+    }
+
+    List<Community> nearbyCommunities = const [];
     List<Community> savedCommunities = const [];
-    List<Community> feedCommunities = const [];
     List<CommunityPost> posts = const [];
 
     try {
-      visibleCommunities = await _communityService.getNeighborhoods(
+      nearbyCommunities = await _communityService.getNeighborhoods(
         latitude: lat,
         longitude: lon,
       );
@@ -128,7 +226,6 @@ class _HomeScreenState extends State<HomeScreen> {
         latitude: lat,
         longitude: lon,
       );
-      feedCommunities = feedData['communities'] as List<Community>;
       posts = feedData['posts'] as List<CommunityPost>;
     } catch (e) {
       debugPrint('API Feed request failed: $e');
@@ -144,15 +241,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    final mergedCommunities = _mergeCommunities([
-      visibleCommunities,
-      savedCommunities,
-      feedCommunities,
-    ]);
-
     Community? selectedCommunity;
     if (_selectedCommunityName != null) {
-      for (final community in mergedCommunities) {
+      for (final community in nearbyCommunities) {
         if (community.name == _selectedCommunityName) {
           selectedCommunity = community;
           break;
@@ -161,15 +252,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final defaultCommunity =
         selectedCommunity ??
-        (mergedCommunities.isEmpty ? null : mergedCommunities.first);
+        (nearbyCommunities.isEmpty ? null : nearbyCommunities.first);
 
     if (mounted) {
       setState(() {
-        _nearbyCommunities = mergedCommunities;
+        _nearbyCommunities = nearbyCommunities;
         _joinedCommunityIds = savedCommunities
             .map((community) => community.id)
             .toSet();
         _selectedCommunityName = defaultCommunity?.name;
+        _recommendedPosts = posts;
         _nearbyPets = posts.map((post) => post.toPetMap()).toList();
         _shouldShowFallbackPets = _nearbyPets.isEmpty;
         _isLoadingCommunityPosts = false;
@@ -391,7 +483,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: buildBottomNav(
         selectedNavIndex: _selectedNavIndex,
-        onNavTap: (index) => setState(() => _selectedNavIndex = index),
+        messageBadgeCount: _messageBadgeCount,
+        onNavTap: _handleNavTap,
       ),
     );
   }
@@ -405,6 +498,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final glassColor = isDark
         ? Colors.white.withValues(alpha: 0.05)
         : Colors.black.withValues(alpha: 0.03);
+    final recommendedPostMaps = _recommendedPosts
+        .map((post) => post.toFeedMap())
+        .toList();
 
     return ClipRRect(
       child: BackdropFilter(
@@ -441,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               if (!isResultsMode) const SizedBox(height: 12),
-              if (!isResultsMode)
+              if (!isResultsMode && recommendedPostMaps.isEmpty)
                 buildCategoryRow(
                   selectedCategory: _selectedCategory,
                   onCategoryTap: (category) =>
@@ -450,7 +546,9 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!isResultsMode) ...[
                 const SizedBox(height: 22),
                 Text(
-                  'Ideas for you',
+                  recommendedPostMaps.isEmpty
+                      ? 'Ideas for you'
+                      : 'Recommended posts',
                   style: TextStyle(
                     fontSize: 23,
                     fontWeight: FontWeight.w800,
@@ -460,17 +558,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
               ],
               Expanded(
-                child: buildPetList(
-                  pets: _visiblePets,
-                  selectedCategory: isResultsMode ? 'all' : _selectedCategory,
-                  searchQuery: _searchQuery,
-                  onPetTap: (pet) => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PetDetailsScreen(pet: pet),
-                    ),
-                  ),
-                ),
+                child: recommendedPostMaps.isNotEmpty
+                    ? buildCommunityPostsFeed(
+                        posts: recommendedPostMaps,
+                        searchQuery: _searchQuery,
+                        onPostTap: (postMap) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  MissingPostDetailsScreen(post: postMap),
+                            ),
+                          );
+                        },
+                      )
+                    : buildPetList(
+                        pets: _visiblePets,
+                        selectedCategory: isResultsMode
+                            ? 'all'
+                            : _selectedCategory,
+                        searchQuery: _searchQuery,
+                        onPetTap: (pet) => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PetDetailsScreen(pet: pet),
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),
