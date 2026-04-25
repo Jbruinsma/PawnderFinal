@@ -198,6 +198,12 @@ class _CommunityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final iconBase = isSelected
+        ? theme.colorScheme.primary.withValues(alpha: 0.14)
+        : theme.scaffoldBackgroundColor.withValues(alpha: isDark ? 0.72 : 0.98);
+    final iconAccent = isSelected
+        ? theme.colorScheme.primary.withValues(alpha: 0.22)
+        : theme.dividerColor.withValues(alpha: isDark ? 0.35 : 0.7);
 
     return InkWell(
       borderRadius: BorderRadius.circular(24),
@@ -227,20 +233,58 @@ class _CommunityCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? theme.colorScheme.primary.withValues(alpha: 0.14)
-                    : theme.scaffoldBackgroundColor.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [iconBase, iconAccent],
+                ),
               ),
-              child: Icon(
-                Icons.location_city_rounded,
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurface,
-                size: 28,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: -10,
+                    right: -8,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.surface.withValues(
+                          alpha: 0.18,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -12,
+                    left: 10,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.surface.withValues(
+                          alpha: 0.14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 28,
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.82,
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 14),
