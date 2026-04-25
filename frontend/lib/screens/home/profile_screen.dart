@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pawnder_app/models/current_user.dart';
@@ -7,8 +5,10 @@ import 'package:pawnder_app/screens/auth/login_screen.dart';
 import 'package:pawnder_app/screens/home/user_posts_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
 import 'package:pawnder_app/services/post_service.dart';
+import 'package:pawnder_app/services/profile_photo_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
+import 'package:pawnder_app/widgets/user_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +20,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _authService = AuthService();
   final _postService = PostService();
+  final _profilePhotoService = ProfilePhotoService();
   final ImagePicker _profileImagePicker = ImagePicker();
   CurrentUser? _currentUser;
   XFile? _selectedProfilePhoto;
@@ -39,8 +40,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
     try {
       final user = await _authService.getCurrentUser();
+      final savedPhotoPath = await _profilePhotoService.getPhotoPath(user.id);
       if (!mounted) return;
-      setState(() => _currentUser = user);
+      setState(() {
+        _currentUser = user;
+        _selectedProfilePhoto = savedPhotoPath == null
+            ? null
+            : XFile(savedPhotoPath);
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = _authService.messageForError(error));
@@ -56,6 +63,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageQuality: 88,
       );
       if (!mounted || image == null) return;
+      final userId = _currentUser?.id;
+      if (userId != null) {
+        await _profilePhotoService.savePhotoPath(
+          userId: userId,
+          path: image.path,
+        );
+      }
       setState(() => _selectedProfilePhoto = image);
     } catch (_) {
       if (!mounted) return;
@@ -68,17 +82,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _removeProfilePhoto() {
+  Future<void> _removeProfilePhoto() async {
+    final userId = _currentUser?.id;
+    if (userId != null) {
+      await _profilePhotoService.clearPhotoPath(userId);
+    }
     setState(() => _selectedProfilePhoto = null);
   }
 
   Future<void> _logout() async {
     await _authService.logout();
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      LoginScreen.routeName,
-      (route) => false,
-    );
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(LoginScreen.routeName, (route) => false);
   }
 
   @override
@@ -228,7 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
           ),
           const SizedBox(height: 10),
-          _MenuTile(label: user?.email ?? 'CONTACT\nINFORMATION'),
+          _AccountDetailsCard(email: user?.email),
           const SizedBox(height: 24),
           _MenuTile(
             label: 'LOG OUT',
@@ -276,6 +293,85 @@ class _ProfileNotice extends StatelessWidget {
   }
 }
 
+class _AccountDetailsCard extends StatelessWidget {
+  final String? email;
+
+  const _AccountDetailsCard({required this.email});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkElevated : theme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ACCOUNT DETAILS',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _AccountDetailRow(
+            label: 'Email',
+            value: email?.trim().isNotEmpty == true ? email! : 'Not available',
+          ),
+          const SizedBox(height: 12),
+          _AccountDetailRow(label: 'Password', value: '••••••••'),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _AccountDetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label:',
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProfilePhotoButton extends StatelessWidget {
   final XFile? selectedPhoto;
   final VoidCallback onPressed;
@@ -306,18 +402,12 @@ class _ProfilePhotoButton extends StatelessWidget {
                 border: Border.all(color: theme.dividerColor, width: 2),
               ),
               child: ClipOval(
-                child: selectedPhoto == null
-                    ? Icon(
-                        Icons.person_outline_rounded,
-                        size: 44,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      )
-                    : Image.file(
-                        File(selectedPhoto!.path),
-                        width: 96,
-                        height: 96,
-                        fit: BoxFit.cover,
-                      ),
+                child: UserAvatar(
+                  imagePath: selectedPhoto?.path,
+                  size: 96,
+                  backgroundColor: theme.cardColor,
+                  iconColor: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             Positioned(
