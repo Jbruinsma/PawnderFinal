@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/models/current_user.dart';
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _feedService = FeedService();
   final _messageService = MessageService();
   final _messageSocketService = MessageSocketService();
+  final _storage = const FlutterSecureStorage();
 
   late int _selectedNavIndex;
   String _selectedCategory = 'all';
@@ -62,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const _defaultLatitude = 40.7128;
   static const _defaultLongitude = -74.0060;
+  static const _coordThreshold = 0.005;
 
   List<Map<String, String>> _nearbyPets = [];
   List<CommunityPost> _recommendedPosts = const [];
@@ -115,6 +118,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _locationFuture = _requestLocationAsSoonAsPossible(
           userId: _currentUser!.id,
         );
+      } else {
+        _locationFuture = _locationService.requestAndSaveCurrentLocation();
       }
     }
 
@@ -168,8 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final location = await _locationService.requestAndSaveCurrentLocation();
       await _locationService.markHomeLocationPromptSeen(userId: userId);
       return location;
-    } catch (error) {
-      debugPrint('Early location request failed: $error');
+    } catch (_) {
       return null;
     }
   }
@@ -181,17 +185,40 @@ class _HomeScreenState extends State<HomeScreen> {
     double lon = _defaultLongitude;
 
     try {
-      final currentLocation = _locationFuture == null || _currentUser == null
-          ? null
-          : await _locationFuture;
-      if (currentLocation != null) {
-        lat = currentLocation.latitude;
-        lon = currentLocation.longitude;
+      final cachedLatStr = await _storage.read(key: 'last_known_lat');
+      final cachedLonStr = await _storage.read(key: 'last_known_lon');
+      if (cachedLatStr != null && cachedLonStr != null) {
+        lat = double.tryParse(cachedLatStr) ?? lat;
+        lon = double.tryParse(cachedLonStr) ?? lon;
       }
-    } catch (e) {
-      debugPrint('Location request failed (using defaults): $e');
-    }
+    } catch (_) {}
 
+    await _fetchFeedData(lat, lon, isSilentUpdate: false);
+
+    if (_locationFuture != null) {
+      _locationFuture!.then((actualLocation) async {
+        if (actualLocation != null && mounted) {
+          final latDiff = (actualLocation.latitude - lat).abs();
+          final lonDiff = (actualLocation.longitude - lon).abs();
+
+          await _storage.write(
+              key: 'last_known_lat', value: actualLocation.latitude.toString());
+          await _storage.write(
+              key: 'last_known_lon', value: actualLocation.longitude.toString());
+
+          if (latDiff > _coordThreshold || lonDiff > _coordThreshold) {
+            await _fetchFeedData(
+              actualLocation.latitude,
+              actualLocation.longitude,
+              isSilentUpdate: true,
+            );
+          }
+        }
+      }).catchError((_) {});
+    }
+  }
+
+  Future<void> _fetchFeedData(double lat, double lon, {required bool isSilentUpdate}) async {
     if (_currentUser == null) {
       try {
         _currentUser = await _authService.getCurrentUser();
@@ -209,16 +236,12 @@ class _HomeScreenState extends State<HomeScreen> {
         latitude: lat,
         longitude: lon,
       );
-    } catch (e) {
-      debugPrint('Neighborhoods request failed: $e');
-    }
+    } catch (_) {}
 
     if (_currentUser != null) {
       try {
         savedCommunities = await _communityService.getMyNeighborhoods();
-      } catch (e) {
-        debugPrint('Saved communities request failed: $e');
-      }
+      } catch (_) {}
     }
 
     try {
@@ -227,9 +250,8 @@ class _HomeScreenState extends State<HomeScreen> {
         longitude: lon,
       );
       posts = feedData['posts'] as List<CommunityPost>;
-    } catch (e) {
-      debugPrint('API Feed request failed: $e');
-      if (mounted) {
+    } catch (_) {
+      if (mounted && !isSilentUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -264,7 +286,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _recommendedPosts = posts;
         _nearbyPets = posts.map((post) => post.toPetMap()).toList();
         _shouldShowFallbackPets = _nearbyPets.isEmpty;
-        _isLoadingCommunityPosts = false;
+        if (!isSilentUpdate) {
+          _isLoadingCommunityPosts = false;
+        }
       });
     }
   }
