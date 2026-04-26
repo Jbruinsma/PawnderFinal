@@ -1,16 +1,14 @@
-from contextlib import asynccontextmanager
-import os
 import logging
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.v1 import auth, geo, community, messages, search
-from app.core.database import engine, get_db
+from app.core.database import engine
 from . import models
+from .api.v1 import auth, geo, community, messages, search
+from .core.config import settings
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -45,22 +43,5 @@ app.include_router(search.router, prefix="/api/v1")
 def read_root():
     return {
         "message": "Pawnder API is running!",
-        "user": os.getenv("POSTGRES_USER")
+        "user": settings.postgres_user
     }
-
-@app.get("/test-db")
-def test_db(db: Session = Depends(get_db)):
-    try:
-        result = db.execute(text("SELECT postgis_full_version();"))
-        version = result.fetchone()[0]
-
-        table_check = db.execute(text("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public';"))
-        tables = [row[0] for row in table_check.fetchall()]
-
-        return {
-            "status": "Connected to PostGIS",
-            "version": version,
-            "initialized_tables": tables
-        }
-    except Exception as e:
-        return {"status": "Error", "details": str(e)}
