@@ -219,21 +219,15 @@ class _StackedPostCard extends StatelessWidget {
                     children: [
                       _InlineMeta(
                         icon: Icons.mode_comment_outlined,
-                        label: '${post['commentCount'] ?? '0'} comments',
+                        label: post['commentCount'] ?? '0',
                       ),
                       const SizedBox(width: 12),
                       _InlineMeta(
                         icon: youLiked
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
-                        label: '${post['likeCount'] ?? '0'} likes',
+                        label: post['likeCount'] ?? '0',
                         iconColor: youLiked ? Colors.redAccent : null,
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: onCommentTap,
-                        icon: const Icon(Icons.chat_bubble_outline_rounded),
-                        label: const Text('Comment'),
                       ),
                     ],
                   ),
