@@ -1,12 +1,13 @@
 from collections.abc import Sequence
 
+from geoalchemy2.shape import to_shape
 from sqlalchemy import func
 from sqlalchemy.orm import Query, Session
 
 from app.models.community import Community
 from app.models.post import Post, Tag
 from app.models.user import User
-from app.schemas.post import PostSearchResponse
+from app.schemas.post import PostSearchResponse, PostLocation
 
 
 def _apply_tag_filter(query: Query, tags: Sequence[str] | None) -> Query:
@@ -16,9 +17,8 @@ def _apply_tag_filter(query: Query, tags: Sequence[str] | None) -> Query:
     return query.filter(Post.tags.any(Tag.name.in_(tags)))
 
 
-def _serialize_post(session: Session, post: Post) -> PostSearchResponse:
-    longitude = session.query(func.ST_X(post.location)).scalar()
-    latitude = session.query(func.ST_Y(post.location)).scalar()
+def _serialize_post(post: Post) -> PostSearchResponse:
+    point = to_shape(post.location)
 
     return PostSearchResponse(
         id=post.id,
@@ -29,10 +29,10 @@ def _serialize_post(session: Session, post: Post) -> PostSearchResponse:
         image_url=post.image_url,
         status=post.status,
         created_at=post.created_at,
-        location={
-            "latitude": latitude,
-            "longitude": longitude,
-        },
+        location=PostLocation(
+            latitude=point.y,
+            longitude=point.x,
+        ),
         tags=[tag.name for tag in post.tags],
     )
 
@@ -62,7 +62,7 @@ def search_posts_by_radius(
     query = _apply_tag_filter(query, tags)
 
     posts = query.order_by(distance_expr.asc(), Post.created_at.desc()).all()
-    return [_serialize_post(session, post) for post in posts]
+    return [_serialize_post(post) for post in posts]
 
 
 def get_geo_feed(
@@ -97,7 +97,7 @@ def get_geo_feed(
     query = _apply_tag_filter(query, tags)
 
     posts = query.order_by(Post.created_at.desc(), distance_expr.asc()).all()
-    return [_serialize_post(session, post) for post in posts]
+    return [_serialize_post(post) for post in posts]
 
 
 def get_neighborhood_feed(
@@ -121,4 +121,4 @@ def get_neighborhood_feed(
         .order_by(Post.created_at.desc())
         .all()
     )
-    return [_serialize_post(session, post) for post in posts]
+    return [_serialize_post(post) for post in posts]
