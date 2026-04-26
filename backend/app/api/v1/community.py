@@ -149,6 +149,29 @@ def create_neighborhood(
         )
     )
 
+
+@router.get(
+    path= "/neighborhoods/{community_id}"
+)
+async def retrieve_community(
+        community_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    base_stmt = (
+        select(Community)
+        .where(Community.id == community_id)
+    )
+
+    stmt = get_community_stats_query(current_user.id, base_stmt)
+    results = session.execute(stmt).first()
+
+    if not results:
+        raise HTTPException(status_code=404, detail="Community not found")
+
+    return format_neighborhood_with_stats(results)
+
+
 @router.post("/neighborhoods/{community_id}/join", summary="Join a neighborhood")
 def join_neighborhood(
         community_id: UUID,
