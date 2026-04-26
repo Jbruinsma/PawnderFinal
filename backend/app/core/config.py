@@ -29,4 +29,4 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 # Instantiate the settings so they can be imported anywhere in the app
-settings = Settings()
+settings = Settings() # type: ignore
