@@ -1,15 +1,17 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/services/api_client.dart';
 import 'package:pawnder_app/services/location_service.dart';
 import 'package:pawnder_app/services/post_service.dart';
+import 'package:pawnder_app/services/upload_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
+import 'package:pawnder_app/widgets/image_picker_card.dart';
+import 'package:pawnder_app/widgets/input_card.dart';
 
 class ListingScreen extends StatefulWidget {
   final String? authorId;
@@ -35,10 +37,11 @@ class _ListingScreenState extends State<ListingScreen> {
   final _postService = PostService();
   final _apiClient = ApiClient();
   final _locationService = LocationService();
-  final ImagePicker _imagePicker = ImagePicker();
+  final _uploadService = UploadService();
 
   final List<String> _selectedTags = [];
-  XFile? _selectedImage;
+  Uint8List? _imageBytes;
+  String? _imageContentType;
   bool _isSubmitting = false;
   String? _selectedCommunityId;
 
@@ -124,6 +127,26 @@ class _ListingScreenState extends State<ListingScreen> {
       }
     } catch (_) {}
 
+    String? imageUrl;
+    final bytes = _imageBytes;
+    final contentType = _imageContentType;
+    if (bytes != null && contentType != null) {
+      try {
+        imageUrl = await _uploadService.uploadImage(
+          bytes: bytes,
+          contentType: contentType,
+          purpose: UploadPurpose.post,
+        );
+      } catch (error) {
+        if (!mounted) return;
+        _showMessage(_apiClient.messageForError(error));
+        setState(() {
+          _isSubmitting = false;
+        });
+        return;
+      }
+    }
+
     try {
       await _postService.createPost(
         CreatePostRequest(
@@ -134,6 +157,7 @@ class _ListingScreenState extends State<ListingScreen> {
           description: description,
           location: location,
           tags: _selectedTags,
+          imageUrl: imageUrl,
         ),
       );
 
@@ -162,34 +186,6 @@ class _ListingScreenState extends State<ListingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
-  }
-
-  Future<void> _pickListingPhoto() async {
-    try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 88,
-      );
-
-      if (!mounted || image == null) {
-        return;
-      }
-
-      setState(() {
-        _selectedImage = image;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open your photo library right now.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   @override
@@ -225,7 +221,7 @@ class _ListingScreenState extends State<ListingScreen> {
                 ),
                 const SizedBox(height: 28),
                 if (_shouldShowCommunityPicker) ...[
-                  _InputCard(
+                  InputCard(
                     child: DropdownButtonFormField<String>(
                       initialValue: _selectedCommunityId,
                       isExpanded: true,
@@ -254,7 +250,7 @@ class _ListingScreenState extends State<ListingScreen> {
                   ),
                   const SizedBox(height: 18),
                 ],
-                _InputCard(
+                InputCard(
                   child: TextField(
                     controller: _titleController,
                     textCapitalization: TextCapitalization.sentences,
@@ -270,7 +266,7 @@ class _ListingScreenState extends State<ListingScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                _InputCard(
+                InputCard(
                   minHeight: 148,
                   child: TextField(
                     controller: _descriptionController,
@@ -324,7 +320,9 @@ class _ListingScreenState extends State<ListingScreen> {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? theme.colorScheme.primary
-                                  : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03)),
+                                  : (isDark
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : Colors.black.withValues(alpha: 0.03)),
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
                                 color: isSelected
@@ -349,171 +347,52 @@ class _ListingScreenState extends State<ListingScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 28),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(32),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: theme.dividerColor),
-                      ),
-                      child: Column(
-                        children: [
-                          InkWell(
-                            borderRadius: BorderRadius.circular(26),
-                            onTap: _pickListingPhoto,
-                            child: Container(
-                              height: 210,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(26),
-                                border: Border.all(color: theme.dividerColor),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: _selectedImage == null
-                                  ? Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.add_photo_alternate_outlined,
-                                          size: 72,
-                                          color: theme.colorScheme.onSurface,
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          'Add post',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w800,
-                                            color: theme.colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Tap to upload a clear pet photo',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: theme.colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        Image.file(
-                                          File(_selectedImage!.path),
-                                          fit: BoxFit.cover,
-                                        ),
-                                        Positioned(
-                                          right: 12,
-                                          top: 12,
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(999),
-                                            child: BackdropFilter(
-                                              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 6,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white.withValues(alpha: 0.75),
-                                                  borderRadius: BorderRadius.circular(
-                                                    999,
-                                                  ),
-                                                ),
-                                                child: const Text(
-                                                  'Change photo',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w900,
-                                                    color: Color(0xFF24313E),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: theme.colorScheme.primary,
-                                foregroundColor: theme.colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                              onPressed: _isSubmitting ? null : _submitListing,
-                              child: _isSubmitting
-                                  ? SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: theme.colorScheme.onPrimary,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Upload Post',
-                                      style: TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ],
+                ImagePickerCard(
+                  bytes: _imageBytes,
+                  contentType: _imageContentType,
+                  emptyTitle: 'Add post',
+                  emptySubtitle: 'Tap to upload a clear pet photo',
+                  onPicked: (bytes, contentType) {
+                    setState(() {
+                      _imageBytes = bytes;
+                      _imageContentType = contentType;
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
+                    onPressed: _isSubmitting ? null : _submitListing,
+                    child: _isSubmitting
+                        ? SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: theme.colorScheme.onPrimary,
+                            ),
+                          )
+                        : const Text(
+                            'Upload Post',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InputCard extends StatelessWidget {
-  final Widget child;
-  final double minHeight;
-
-  const _InputCard({required this.child, this.minHeight = 74});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          constraints: BoxConstraints(minHeight: minHeight),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: theme.dividerColor),
-          ),
-          child: child,
         ),
       ),
     );

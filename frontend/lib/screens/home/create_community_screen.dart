@@ -1,10 +1,15 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
 import 'package:pawnder_app/services/api_client.dart';
 import 'package:pawnder_app/services/community_service.dart';
 import 'package:pawnder_app/services/location_service.dart';
+import 'package:pawnder_app/services/upload_service.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
+import 'package:pawnder_app/widgets/image_picker_card.dart';
+import 'package:pawnder_app/widgets/input_card.dart';
 
 class CreateCommunityScreen extends StatefulWidget {
   final String authorId;
@@ -20,10 +25,14 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   final _descriptionController = TextEditingController();
   final _communityService = CommunityService();
   final _locationService = LocationService();
+  final _uploadService = UploadService();
   final _apiClient = ApiClient();
 
   bool _isSubmitting = false;
   Community? _createdCommunity;
+
+  Uint8List? _imageBytes;
+  String? _imageContentType;
 
   @override
   void dispose() {
@@ -33,6 +42,8 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
   }
 
   Future<void> _createCommunity() async {
+    FocusScope.of(context).unfocus();
+
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
 
@@ -51,11 +62,28 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
         );
       }
 
+      String? bannerImageUrl;
+      if (_imageBytes != null && _imageContentType != null) {
+        try {
+          bannerImageUrl = await _uploadService.uploadImage(
+            bytes: _imageBytes!,
+            contentType: _imageContentType!,
+            purpose: UploadPurpose.community,
+          );
+        } catch (error) {
+          if (!mounted) return;
+          _showMessage(_apiClient.messageForError(error));
+          setState(() => _isSubmitting = false);
+          return;
+        }
+      }
+
       final community = await _communityService.createNeighborhood(
         name: name,
         description: description,
         latitude: location.latitude,
         longitude: location.longitude,
+        image_url: bannerImageUrl,
       );
 
       if (!mounted) {
@@ -70,9 +98,9 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
 
       final message =
           error is Exception &&
-              error.toString().contains('Enable location access')
-          ? 'Enable location access to create a community near you.'
-          : _apiClient.messageForError(error);
+                  error.toString().contains('Enable location access')
+              ? 'Enable location access to create a community near you.'
+              : _apiClient.messageForError(error);
       _showMessage(message);
     } finally {
       if (mounted) {
@@ -138,7 +166,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
               ),
               const SizedBox(height: 28),
               if (_createdCommunity == null) ...[
-                _InputCard(
+                InputCard(
                   child: TextField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
@@ -154,7 +182,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                _InputCard(
+                InputCard(
                   minHeight: 148,
                   child: TextField(
                     controller: _descriptionController,
@@ -173,7 +201,21 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
+                ImagePickerCard(
+                  bytes: _imageBytes,
+                  contentType: _imageContentType,
+                  emptyTitle: 'Add banner',
+                  emptySubtitle: 'Tap to upload a community photo',
+                  previewHeight: 180,
+                  onPicked: (bytes, contentType) {
+                    setState(() {
+                      _imageBytes = bytes;
+                      _imageContentType = contentType;
+                    });
+                  },
+                ),
+                const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -268,37 +310,6 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _InputCard extends StatelessWidget {
-  final Widget child;
-  final double minHeight;
-
-  const _InputCard({required this.child, this.minHeight = 74});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      constraints: BoxConstraints(minHeight: minHeight),
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: theme.dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
     );
   }
 }
