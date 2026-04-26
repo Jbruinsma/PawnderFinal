@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community_post.dart';
-import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
+import 'package:pawnder_app/screens/home/unified_post_detail_screen.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
 
@@ -60,15 +60,6 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  Future<void> _openPost(CommunityPost post) async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MissingPostDetailsScreen(post: post.toFeedMap()),
-      ),
-    );
   }
 
   @override
@@ -151,12 +142,15 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
                         child: buildCommunityPostsFeed(
                           posts: postMaps,
                           searchQuery: _searchQuery,
-                          onPostTap: (post) async {
-                            final selected = _posts.firstWhere(
-                              (item) => item.id == post['id'],
-                              orElse: () => _posts.first,
+                          onPostTap: (postMap) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => UnifiedPostDetailScreen(
+                                  post: postMap,
+                                ),
+                              ),
                             );
-                            await _openPost(selected);
                           },
                         ),
                       ),

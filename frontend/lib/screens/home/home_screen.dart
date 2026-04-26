@@ -9,9 +9,7 @@ import 'package:pawnder_app/screens/home/chat_screen.dart';
 import 'package:pawnder_app/screens/home/community_screen.dart';
 import 'package:pawnder_app/screens/home/create_community_screen.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
-import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
 import 'package:pawnder_app/screens/home/profile_screen.dart';
-import 'package:pawnder_app/screens/home/pet_details_screen.dart';
 import 'package:pawnder_app/screens/home/unified_post_detail_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
 import 'package:pawnder_app/services/community_service.dart';
@@ -184,6 +182,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCommunityData() async {
     setState(() => _isLoadingCommunityPosts = true);
 
+    try {
+      _currentUser = await _authService.getCurrentUser();
+    } catch (_) {
+      _currentUser = null;
+    }
+
     double lat = _defaultLatitude;
     double lon = _defaultLongitude;
 
@@ -199,29 +203,39 @@ class _HomeScreenState extends State<HomeScreen> {
     await _fetchFeedData(lat, lon, isSilentUpdate: false);
 
     if (_locationFuture != null) {
-      _locationFuture!.then((actualLocation) async {
-        if (actualLocation != null && mounted) {
-          final latDiff = (actualLocation.latitude - lat).abs();
-          final lonDiff = (actualLocation.longitude - lon).abs();
+      _locationFuture!
+          .then((actualLocation) async {
+            if (actualLocation != null && mounted) {
+              final latDiff = (actualLocation.latitude - lat).abs();
+              final lonDiff = (actualLocation.longitude - lon).abs();
 
-          await _storage.write(
-              key: 'last_known_lat', value: actualLocation.latitude.toString());
-          await _storage.write(
-              key: 'last_known_lon', value: actualLocation.longitude.toString());
+              await _storage.write(
+                key: 'last_known_lat',
+                value: actualLocation.latitude.toString(),
+              );
+              await _storage.write(
+                key: 'last_known_lon',
+                value: actualLocation.longitude.toString(),
+              );
 
-          if (latDiff > _coordThreshold || lonDiff > _coordThreshold) {
-            await _fetchFeedData(
-              actualLocation.latitude,
-              actualLocation.longitude,
-              isSilentUpdate: true,
-            );
-          }
-        }
-      }).catchError((_) {});
+              if (latDiff > _coordThreshold || lonDiff > _coordThreshold) {
+                await _fetchFeedData(
+                  actualLocation.latitude,
+                  actualLocation.longitude,
+                  isSilentUpdate: true,
+                );
+              }
+            }
+          })
+          .catchError((_) {});
     }
   }
 
-  Future<void> _fetchFeedData(double lat, double lon, {required bool isSilentUpdate}) async {
+  Future<void> _fetchFeedData(
+    double lat,
+    double lon, {
+    required bool isSilentUpdate,
+  }) async {
     if (_currentUser == null) {
       try {
         _currentUser = await _authService.getCurrentUser();
@@ -302,96 +316,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<bool> _confirmJoinCommunity(Community community) async {
-    final theme = Theme.of(context);
-
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            title: Row(
-              children: [
-                Icon(Icons.groups_2_outlined, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Join community?',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              'Would you like to join ${community.name} before opening it? You will start seeing its activity as one of your communities.',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Not now'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Join'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
   Future<void> _handleCommunityTap(Community community) async {
     final selectedCommunityId = community.id;
     if (!mounted) return;
 
-    if (_currentUser != null) {
-      final isAlreadyJoined = _joinedCommunityIds.contains(selectedCommunityId);
-
-      if (!isAlreadyJoined) {
-        final shouldJoin = await _confirmJoinCommunity(community);
-        if (!shouldJoin || !mounted) {
-          return;
-        }
-
-        try {
-          await _communityService.joinNeighborhood(
-            communityId: selectedCommunityId,
-          );
-          if (mounted) {
-            setState(() {
-              _joinedCommunityIds = {
-                ..._joinedCommunityIds,
-                selectedCommunityId,
-              };
-            });
-          }
-        } catch (_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Could not join this community right now.'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      if (mounted) {
-        setState(() => _selectedCommunityName = community.name);
-      }
-    } else if (mounted) {
-      setState(() => _selectedCommunityName = community.name);
-    }
-
-    if (!mounted) return;
+    setState(() => _selectedCommunityName = community.name);
 
     final communityPosts = await _getCommunityFeedPosts(
       communityId: selectedCommunityId,
@@ -403,15 +332,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => CommunityPostsScreen(
-          title: community.name,
+          community: community,
           posts: communityPosts,
-          communityId: selectedCommunityId,
-          onPostTap: (post) => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MissingPostDetailsScreen(post: post.toFeedMap()),
-            ),
-          ),
           onAddListingTap: () async {
             if (_currentUser == null) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -427,7 +349,8 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(
                 builder: (_) => ListingScreen(
                   authorId: _currentUser!.id,
-                  communityId: community.id,
+                  communities: _nearbyCommunities,
+                  initialCommunityId: community.id,
                 ),
               ),
             );
@@ -493,6 +416,58 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadCommunityData();
   }
 
+  Future<void> _openCreatePostScreen() async {
+    if (!mounted) return;
+
+    if (_currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Log in before creating a post.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_nearbyCommunities.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No communities are available yet. Create one first.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    String? initialCommunityId;
+    final selectedCommunityName = _selectedCommunityName;
+    if (selectedCommunityName != null) {
+      for (final community in _nearbyCommunities) {
+        if (community.name == selectedCommunityName) {
+          initialCommunityId = community.id;
+          break;
+        }
+      }
+    }
+
+    final didCreate = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ListingScreen(
+          authorId: _currentUser!.id,
+          communities: _nearbyCommunities,
+          initialCommunityId: initialCommunityId,
+        ),
+      ),
+    );
+
+    if (didCreate != true || !mounted) {
+      return;
+    }
+
+    await _loadCommunityData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -506,6 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
               selectedCommunityName: _selectedCommunityName,
               isLoading: _isLoadingCommunityPosts,
               onCreateCommunityTap: _openCreateCommunityScreen,
+              onCreatePostTap: _openCreatePostScreen,
               onCommunityTap: _handleCommunityTap,
             ),
             2 => const ChatScreen(),
@@ -535,8 +511,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final filteredPosts = _selectedCategory == 'all'
         ? _recommendedPosts
         : _recommendedPosts.where((post) {
-            return post.tags.any((tag) =>
-                tag.toLowerCase() == _selectedCategory.toLowerCase());
+            return post.tags.any(
+              (tag) => tag.toLowerCase() == _selectedCategory.toLowerCase(),
+            );
           }).toList();
 
     final recommendedPostMaps = filteredPosts
@@ -587,9 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 22),
                 Text(
-                  recommendedPostMaps.isEmpty
-                      ? 'Ideas for you'
-                      : 'What\'s New',
+                  recommendedPostMaps.isEmpty ? 'Ideas for you' : 'What\'s New',
                   style: TextStyle(
                     fontSize: 23,
                     fontWeight: FontWeight.w800,
@@ -601,37 +576,41 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: recommendedPostMaps.isNotEmpty
                     ? buildCommunityPostsFeed(
-                  posts: recommendedPostMaps,
-                  searchQuery: _searchQuery,
-                  currentUserId: _currentUser?.id,
-                  onPostTap: (postMap) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => UnifiedPostDetailScreen(post: postMap),
-                      ),
-                    );
-                    },
-                  onCommentTap: (postMap) async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => UnifiedPostDetailScreen(post: postMap),
-                      ),
-                    );
-                    },
-                )
+                        posts: recommendedPostMaps,
+                        searchQuery: _searchQuery,
+                        currentUserId: _currentUser?.id,
+                        onPostTap: (postMap) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  UnifiedPostDetailScreen(post: postMap),
+                            ),
+                          );
+                        },
+                        onCommentTap: (postMap) async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  UnifiedPostDetailScreen(post: postMap),
+                            ),
+                          );
+                        },
+                      )
                     : buildPetList(
-                  pets: _visiblePets,
-                  selectedCategory: isResultsMode ? 'all' : _selectedCategory,
-                  searchQuery: _searchQuery,
-                  onPetTap: (pet) => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => UnifiedPostDetailScreen(post: pet),
-                    ),
-                  ),
-                ),
+                        pets: _visiblePets,
+                        selectedCategory: isResultsMode
+                            ? 'all'
+                            : _selectedCategory,
+                        searchQuery: _searchQuery,
+                        onPetTap: (pet) => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UnifiedPostDetailScreen(post: pet),
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),

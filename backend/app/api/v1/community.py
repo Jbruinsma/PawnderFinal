@@ -685,7 +685,8 @@ async def like_comment(
 
 
 @router.delete(
-    path="/posts/{post_id}/comments/{comment_id}/like"
+    path="/posts/{post_id}/comments/{comment_id}/like",
+    summary= "Unlike a comment"
 )
 async def unlike_comment(
         post_id: UUID,

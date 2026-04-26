@@ -49,7 +49,7 @@ class _BottomNavContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       NavItem(icon: Icons.home_rounded, label: 'Home'),
-      NavItem(icon: Icons.priority_high_rounded, label: 'Alerts'),
+      NavItem(icon: Icons.groups_2_rounded, label: 'Alerts'),
       NavItem(
         icon: Icons.message_rounded,
         label: 'Messages',
