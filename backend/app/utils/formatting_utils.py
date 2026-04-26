@@ -1,5 +1,6 @@
 from geoalchemy2.shape import to_shape
 
+from app.schemas.community import Neighborhood
 from app.schemas.post import CommunityPost, PostLocation
 
 
@@ -28,4 +29,15 @@ def format_post_with_stats(row) -> CommunityPost:
         like_count= like_count,
         comment_count= comment_count,
         you_liked= you_liked
+    )
+
+
+def format_neighborhood_with_stats(row) -> Neighborhood:
+    return Neighborhood(
+        id= str(row.Community.id),
+        name= str(row.Community.name),
+        description= str(row.Community.description or ""),
+        post_count= int(row.post_count),
+        member_count= int(row.member_count),
+        is_member= bool(row.is_member)
     )

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pawnder_app/screens/auth/forgot_password_screen.dart';
 import 'package:pawnder_app/screens/auth/onboarding_screen.dart';
 import 'package:pawnder_app/screens/home/home_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
@@ -20,7 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _rememberMe = false;
   bool _isSubmitting = false;
 
   @override
@@ -76,113 +74,98 @@ class _LoginScreenState extends State<LoginScreen> {
         showHeaderImage: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final bool isWide = constraints.maxWidth > 600;
+
             return SingleChildScrollView(
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Row(
                   children: [
-                    Text(
-                      'Welcome back',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Log back in below',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildLabel(theme, 'Email'),
-                    const SizedBox(height: 8),
-                    AuthInput(
-                      controller: _emailController,
-                      hintText: '',
-                      icon: Icons.mail_outline,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildLabel(theme, 'Password'),
-                    const SizedBox(height: 8),
-                    AuthInput(
-                      controller: _passwordController,
-                      hintText: '',
-                      icon: Icons.lock_outline,
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _rememberMe,
-                          onChanged: (value) {
-                            setState(() {
-                              _rememberMe = value ?? false;
-                            });
-                          },
-                          visualDensity: const VisualDensity(
-                            horizontal: -4,
-                            vertical: -4,
-                          ),
-                          side: BorderSide(color: theme.dividerColor),
-                        ),
-                        Text(
-                          'Remember me',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                    if (isWide)
+                      Expanded(
+                        flex: 1,
+                        child: Container(
+                          padding: const EdgeInsets.all(40),
+                          child: const AuthBrandHeader(
+                            title: 'Welcome back',
+                            subtitle: 'Join your neighborhood pet network and start posting alerts.',
                           ),
                         ),
-                        const Spacer(),
-                        _buildForgotPasswordLink(context, theme),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: FilledButton(
-                        onPressed: _isSubmitting ? null : _submitLogin,
-                        child: _isSubmitting
-                            ? _buildLoadingIndicator(theme)
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text('Continue'),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward_rounded, size: 18),
-                                ],
+                      ),
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isWide ? 40 : 20,
+                          vertical: 24,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (!isWide) ...[
+                              const AuthBrandHeader(
+                                title: 'Welcome back',
+                                subtitle: 'Log back in below',
                               ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    TextButton(
-                      onPressed: () => Navigator.pushReplacementNamed(
-                        context,
-                        OnboardingScreen.routeName,
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      child: const Text(
-                        "Don't have an account? Create one",
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                              const SizedBox(height: 24),
+                            ],
+                            _buildLabel(theme, 'Email'),
+                            const SizedBox(height: 8),
+                            AuthInput(
+                              controller: _emailController,
+                              hintText: '',
+                              icon: Icons.mail_outline,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildLabel(theme, 'Password'),
+                            const SizedBox(height: 8),
+                            AuthInput(
+                              controller: _passwordController,
+                              hintText: '',
+                              icon: Icons.lock_outline,
+                              obscureText: true,
+                              textInputAction: TextInputAction.done,
+                            ),
+                            const SizedBox(height: 32),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 54,
+                              child: FilledButton(
+                                onPressed: _isSubmitting ? null : _submitLogin,
+                                child: _isSubmitting
+                                    ? _buildLoadingIndicator(theme)
+                                    : const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text('Continue'),
+                                          SizedBox(width: 8),
+                                          Icon(Icons.arrow_forward_rounded, size: 18),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            TextButton(
+                              onPressed: () => Navigator.pushReplacementNamed(
+                                context,
+                                OnboardingScreen.routeName,
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              child: const Text(
+                                "Don't have an account? Create one",
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -214,27 +197,6 @@ class _LoginScreenState extends State<LoginScreen> {
       child: CircularProgressIndicator(
         strokeWidth: 2.5,
         color: theme.colorScheme.onPrimary,
-      ),
-    );
-  }
-
-  Widget _buildForgotPasswordLink(BuildContext context, ThemeData theme) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ForgotPasswordScreen(),
-          ),
-        );
-      },
-      child: Text(
-        'Forgot Password?',
-        style: TextStyle(
-          fontSize: 11,
-          color: theme.colorScheme.onSurface,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

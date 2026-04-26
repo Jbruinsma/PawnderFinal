@@ -9,6 +9,7 @@ from geoalchemy2.shape import from_shape
 from shapely.geometry import Polygon
 
 from app.core.security import get_current_user
+from app.crud.crud_community import get_community_stats_query
 from app.crud.crud_post import (
     create_post as db_create_post, bookmark_post_for_user,
     retrieve_posts_with_stats, retrieve_post_likes, get_post_stats_columns
@@ -24,8 +25,7 @@ from app.schemas.post import (
     PostLikeResponseModel, PostUnlikeResponseModel, CommunityPostCommentRequest, PostComment
 )
 from app.services.feed_engine import generate_algorithmic_feed
-from app.utils.formatting_utils import format_post_with_stats
-
+from app.utils.formatting_utils import format_post_with_stats, format_neighborhood_with_stats
 
 router = APIRouter(
     prefix="/community",
@@ -88,47 +88,19 @@ def get_neighborhoods(
         4326
     )
 
-    member_count_subq = select(func.count(user_communities.c.user_id)).where(
-        user_communities.c.community_id == Community.id
-    ).correlate(Community).scalar_subquery()
-
-    post_count_subq = select(func.count(Post.id)).where(
-        Post.community_id == Community.id
-    ).correlate(Community).scalar_subquery()
-
-    stmt = (
-        select(
-            Community,
-            user_communities.c.user_id.isnot(None).label("is_member"),
-            func.coalesce(member_count_subq, 0).label("member_count"),
-            func.coalesce(post_count_subq, 0).label("post_count")
-        )
-        .outerjoin(
-            user_communities,
-            and_(
-                user_communities.c.community_id == Community.id,
-                user_communities.c.user_id == current_user.id
-            )
-        )
+    base_stmt = (
+        select(Community)
         .order_by(func.ST_Distance(Community.geofence_boundary, user_point))
     )
 
+    stmt = get_community_stats_query(current_user.id, base_stmt)
+
     results = session.execute(stmt).all()
 
-    serialized_neighborhoods = [
-        Neighborhood(
-            id=str(row.Community.id),
-            name=str(row.Community.name),
-            description=str(row.Community.description or ""),
-            post_count=int(row.post_count),
-            member_count=int(row.member_count),
-            is_member=bool(row.is_member)
-        ) for row in results
-    ]
-
     return NeighborhoodResponseModel(
-        neighborhoods=serialized_neighborhoods
+        neighborhoods=[format_neighborhood_with_stats(row) for row in results]
     )
+
 
 @router.post(
     path= "/neighborhoods",
@@ -243,6 +215,7 @@ def join_neighborhood(
         message=f"Successfully joined {community.name}"
     )
 
+
 @router.get(
     path="/my-neighborhoods",
     summary="List the current user's saved neighborhoods",
@@ -252,39 +225,16 @@ def get_my_neighborhoods(
         current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ):
-    member_count_subq = select(func.count(user_communities.c.user_id)).where(
-        user_communities.c.community_id == Community.id
-    ).correlate(Community).scalar_subquery()
+    base_stmt = select(Community)
 
-    post_count_subq = select(func.count(Post.id)).where(
-        Post.community_id == Community.id
-    ).correlate(Community).scalar_subquery()
-
-    stmt = (
-        select(
-            Community,
-            func.coalesce(member_count_subq, 0).label("member_count"),
-            func.coalesce(post_count_subq, 0).label("post_count")
-        )
-        .join(user_communities, user_communities.c.community_id == Community.id)
-        .where(user_communities.c.user_id == current_user.id)
+    stmt = get_community_stats_query(current_user.id, base_stmt).where(
+        user_communities.c.user_id == current_user.id
     )
 
     results = session.execute(stmt).all()
 
-    serialized_neighborhoods = [
-        Neighborhood(
-            id=str(row.Community.id),
-            name=str(row.Community.name),
-            description=str(row.Community.description or ""),
-            post_count=int(row.post_count),
-            member_count=int(row.member_count),
-            is_member=True
-        ) for row in results
-    ]
-
     return NeighborhoodResponseModel(
-        neighborhoods=serialized_neighborhoods
+        neighborhoods=[format_neighborhood_with_stats(row) for row in results]
     )
 
 @router.get(

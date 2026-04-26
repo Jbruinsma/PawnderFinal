@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:ui';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pawnder_app/models/community.dart';
@@ -16,15 +19,17 @@ import 'package:pawnder_app/services/community_service.dart';
 import 'package:pawnder_app/services/location_service.dart';
 import 'package:pawnder_app/services/post_service.dart';
 import 'package:pawnder_app/services/feed_service.dart';
+import 'package:pawnder_app/services/message_service.dart';
+import 'package:pawnder_app/services/message_socket_service.dart';
+import 'package:pawnder_app/services/search_service.dart';
 import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_bottom_nav.dart';
 import 'package:pawnder_app/widgets/build_category_row.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/widgets/build_pet_list.dart';
-import 'package:pawnder_app/widgets/build_search.dart';
-import 'package:pawnder_app/services/message_service.dart';
-import 'package:pawnder_app/services/message_socket_service.dart';
-import 'dart:async';
+import 'package:pawnder_app/widgets/community_card.dart';
+import 'package:pawnder_app/widgets/search_bar.dart';
+import 'package:pawnder_app/widgets/search_status.dart';
 
 const List<Map<String, String>> _staticPets = [];
 const List<String> _defaultCategories = ['Dogs', 'Cats', 'Birds'];
@@ -47,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _feedService = FeedService();
   final _messageService = MessageService();
   final _messageSocketService = MessageSocketService();
+  final _searchService = SearchService();
   final _storage = const FlutterSecureStorage();
 
   late int _selectedNavIndex;
@@ -62,6 +68,15 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _messageSubscription;
   Future<PostLocation?>? _locationFuture;
   List<String> _feedCategories = _defaultCategories;
+
+  Timer? _searchDebounce;
+  CancelToken? _searchCancelToken;
+  int _searchSeq = 0;
+  bool _isSearching = false;
+  String? _searchError;
+  SearchAllResults _searchResults = SearchAllResults.empty;
+
+  static const Duration _searchDebounceDuration = Duration(milliseconds: 300);
 
   static const _defaultLatitude = 40.7128;
   static const _defaultLongitude = -74.0060;
@@ -85,7 +100,76 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _messageSubscription?.cancel();
+    _searchDebounce?.cancel();
+    _searchCancelToken?.cancel('disposed');
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      _searchQuery = value;
+    });
+
+    _searchDebounce?.cancel();
+
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      _searchCancelToken?.cancel('cleared');
+      _searchCancelToken = null;
+      setState(() {
+        _isSearching = false;
+        _searchError = null;
+        _searchResults = SearchAllResults.empty;
+      });
+      return;
+    }
+
+    _searchDebounce = Timer(
+      _searchDebounceDuration,
+      () => _performSearch(trimmed),
+    );
+  }
+
+  Future<void> _performSearch(String query) async {
+    _searchCancelToken?.cancel('superseded');
+    final token = CancelToken();
+    _searchCancelToken = token;
+    final seq = ++_searchSeq;
+
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+    });
+
+    try {
+      final results = await _searchService.searchAll(
+        query: query,
+        cancelToken: token,
+      );
+
+      if (!mounted || seq != _searchSeq) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchResults = results;
+      });
+    } catch (error) {
+      if (error is DioException && CancelToken.isCancel(error)) {
+        return;
+      }
+      if (!mounted || seq != _searchSeq) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchError = 'Couldn\'t search right now.';
+      });
+    }
+  }
+
+  void _retrySearch() {
+    final trimmed = _searchQuery.trim();
+    if (trimmed.isEmpty) return;
+    _performSearch(trimmed);
   }
 
   Future<void> _connectMessageSocket() async {
@@ -529,19 +613,26 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              buildSearch(
-                onChanged: (value) => setState(() => _searchQuery = value),
-              ),
-              const SizedBox(height: 16),
-              if (!isResultsMode)
-                Text(
-                  'Filter By Tags...',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: headerTextColor,
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 24),
+                  child: Text(
+                    'P A W N D E R',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 6,
+                      color: headerTextColor,
+                    ),
                   ),
                 ),
+              ),
+              GlassmorphicSearchBar(
+                onChanged: _onSearchChanged,
+                isLoading: _isSearching,
+                hintText: 'Search for...',
+              ),
+              const SizedBox(height: 16),
               if (isResultsMode)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -553,8 +644,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: headerTextColor,
                     ),
                   ),
+                )
+              else ...[
+                Text(
+                  'Filter By Tags...',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: headerTextColor,
+                  ),
                 ),
-              if (!isResultsMode) ...[
                 const SizedBox(height: 12),
                 buildCategoryRow(
                   categories: _feedCategories,
@@ -574,45 +673,370 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
               ],
               Expanded(
-                child: recommendedPostMaps.isNotEmpty
-                    ? buildCommunityPostsFeed(
-                        posts: recommendedPostMaps,
-                        searchQuery: _searchQuery,
-                        currentUserId: _currentUser?.id,
-                        onPostTap: (postMap) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  UnifiedPostDetailScreen(post: postMap),
-                            ),
-                          );
-                        },
-                        onCommentTap: (postMap) async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  UnifiedPostDetailScreen(post: postMap),
-                            ),
-                          );
-                        },
-                      )
-                    : buildPetList(
-                        pets: _visiblePets,
-                        selectedCategory: isResultsMode
-                            ? 'all'
-                            : _selectedCategory,
-                        searchQuery: _searchQuery,
-                        onPetTap: (pet) => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => UnifiedPostDetailScreen(post: pet),
-                          ),
-                        ),
-                      ),
+                child: isResultsMode
+                    ? _buildSearchResultsView(headerTextColor)
+                    : (recommendedPostMaps.isNotEmpty
+                          ? buildCommunityPostsFeed(
+                              posts: recommendedPostMaps,
+                              searchQuery: _searchQuery,
+                              currentUserId: _currentUser?.id,
+                              onPostTap: (postMap) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        UnifiedPostDetailScreen(post: postMap),
+                                  ),
+                                );
+                              },
+                              onCommentTap: (postMap) async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        UnifiedPostDetailScreen(post: postMap),
+                                  ),
+                                );
+                              },
+                            )
+                          : buildPetList(
+                              pets: _visiblePets,
+                              selectedCategory: _selectedCategory,
+                              searchQuery: _searchQuery,
+                              onPetTap: (pet) => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      UnifiedPostDetailScreen(post: pet),
+                                ),
+                              ),
+                            )),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResultsView(Color headerTextColor) {
+    if (_isSearching && _searchResults.isEmpty) {
+      return SearchStatus.loading();
+    }
+
+    if (_searchError != null) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: SearchStatus(
+          icon: Icons.cloud_off_rounded,
+          title: 'Couldn\'t search right now',
+          subtitle: 'Check your connection and try again.',
+          onRetry: _retrySearch,
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: SearchStatus(
+          icon: Icons.search_off_rounded,
+          title: 'No results for "${_searchQuery.trim()}"',
+          subtitle: 'Try a different keyword, name, or location.',
+        ),
+      );
+    }
+
+    final theme = Theme.of(context);
+    final communities = _searchResults.communities;
+    final posts = _searchResults.posts;
+    final postMaps = posts.map((post) => post.toFeedMap()).toList();
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 92),
+      children: [
+        if (communities.isNotEmpty) ...[
+          _buildSectionHeader(
+            label: 'Communities',
+            count: communities.length,
+            color: headerTextColor,
+          ),
+          const SizedBox(height: 12),
+          ...communities.expand(
+            (community) => [
+              CommunityCard(
+                community: community,
+                isSelected: community.name == _selectedCommunityName,
+                onTap: () => _handleCommunityTap(community),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (postMaps.isNotEmpty) ...[
+          _buildSectionHeader(
+            label: 'Posts',
+            count: postMaps.length,
+            color: headerTextColor,
+          ),
+          const SizedBox(height: 12),
+          ...postMaps.expand((post) {
+            final isAuthor =
+                _currentUser != null && post['authorId'] == _currentUser!.id;
+            return [
+              _SearchPostCard(
+                post: post,
+                isAuthor: isAuthor,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => UnifiedPostDetailScreen(post: post),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+            ];
+          }),
+        ],
+        if (_isSearching)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String label,
+    required int count,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(
+                alpha: 0.12,
+              ),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchPostCard extends StatelessWidget {
+  final Map<String, String> post;
+  final bool isAuthor;
+  final VoidCallback onTap;
+
+  const _SearchPostCard({
+    required this.post,
+    required this.isAuthor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final tags = (post['tags'] ?? '')
+        .split('|')
+        .where((tag) => tag.trim().isNotEmpty)
+        .toList();
+    final section = post['section'] ?? 'recent';
+    final isFound = section == 'found';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: theme.dividerColor),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    isFound ? Icons.pets_rounded : Icons.location_searching_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isFound
+                                  ? Colors.green.withValues(alpha: 0.18)
+                                  : Colors.orange.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              isFound ? 'Found' : 'Lost',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: isFound
+                                    ? Colors.green.shade700
+                                    : Colors.orange.shade800,
+                              ),
+                            ),
+                          ),
+                          if (isAuthor) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.12,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'You',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        post['title'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onSurface,
+                          height: 1.2,
+                        ),
+                      ),
+                      if ((post['description'] ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          post['description'] ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                      if (tags.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: tags
+                              .take(3)
+                              .map(
+                                (tag) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    tag,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),
