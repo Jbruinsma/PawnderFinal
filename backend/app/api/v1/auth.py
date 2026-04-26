@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.security import verify_password, create_access_token, get_current_user
 from app.models.user import User
 from app.crud.crud_user import create_user, get_user_by_email
-from app.database import get_db
+from app.core.database import get_db
 from app.schemas.user import UserCreate, UserResponse, UserLogin, Token, UserLocationUpdate, UserLocationResponse, \
     UserRegistrationResponseModel
 from geoalchemy2.shape import from_shape
