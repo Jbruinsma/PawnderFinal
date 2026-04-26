@@ -333,7 +333,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                     child: const FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        'Add listing here +',
+                        'Create post +',
                         maxLines: 1,
                         style: TextStyle(
                           fontSize: 14,
