@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/screens/home/message_thread_screen.dart';
@@ -334,8 +335,8 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                               height: 40,
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.black.withOpacity(0.7)
-                                    : Colors.white.withOpacity(0.8),
+                                    ? Colors.black.withValues(alpha: 0.7)
+                                    : Colors.white.withValues(alpha: 0.8),
                                 shape: BoxShape.circle,
                               ),
                               padding: const EdgeInsets.all(12),
@@ -366,7 +367,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.black.withOpacity(0.4),
+                                Colors.black.withValues(alpha: 0.4),
                                 Colors.transparent,
                                 theme.scaffoldBackgroundColor,
                               ],
@@ -377,19 +378,28 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                         Positioned(
                           left: 18,
                           bottom: 24,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.black.withOpacity(0.8)
-                                  : Colors.white.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w900,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.black.withValues(alpha: 0.5)
+                                      : Colors.white.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: theme.dividerColor.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: Text(
+                                  (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -425,7 +435,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                           children: [
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                               child: Text(
                                 (post['author'] ?? 'P').trim()[0].toUpperCase(),
                                 style: TextStyle(
@@ -477,18 +487,27 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: tags.map((tag) => Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isDark ? AppColors.darkElevated : const Color(0xFFEDEFF1),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                tag,
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurface,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
+                            children: tags.map((tag) => ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : Colors.black.withValues(alpha: 0.03),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(color: theme.dividerColor),
+                                  ),
+                                  child: Text(
+                                    tag,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                             )).toList(),
@@ -540,14 +559,14 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                           children: [
                             _InteractionButton(
                               icon: _youLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                              label: '$_likeCount Likes',
+                              label: '$_likeCount',
                               color: _youLiked ? Colors.redAccent : theme.colorScheme.onSurfaceVariant,
                               onTap: _togglePostLike,
                             ),
                             const SizedBox(width: 24),
                             _InteractionButton(
                               icon: Icons.mode_comment_outlined,
-                              label: '$_commentCount Comments',
+                              label: '$_commentCount',
                               color: theme.colorScheme.onSurfaceVariant,
                               onTap: () {},
                             ),
@@ -634,102 +653,109 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              border: Border(top: BorderSide(color: theme.dividerColor)),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (replyingToName != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: theme.scaffoldBackgroundColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: theme.dividerColor),
-                        ),
-                        child: Row(
+          ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.6)
+                      : Colors.white.withValues(alpha: 0.8),
+                  border: Border(top: BorderSide(color: theme.dividerColor)),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (replyingToName != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: theme.dividerColor),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Replying to $replyingToName',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: _cancelReply,
+                                  child: Icon(Icons.close_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Expanded(
-                              child: Text(
-                                'Replying to $replyingToName',
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurface,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppColors.darkBackground : theme.scaffoldBackgroundColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: theme.dividerColor),
+                                ),
+                                child: TextField(
+                                  controller: _commentController,
+                                  minLines: 1,
+                                  maxLines: 4,
+                                  textCapitalization: TextCapitalization.sentences,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: replyingToName == null ? 'Add a comment...' : 'Write a reply...',
+                                    hintStyle: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
                                 ),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: _cancelReply,
-                              child: Icon(Icons.close_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                            const SizedBox(width: 12),
+                            Container(
+                              height: 44,
+                              width: 44,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                onPressed: _isSubmittingComment ? null : _submitComment,
+                                icon: _isSubmittingComment
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: theme.colorScheme.onPrimary,
+                                        ),
+                                      )
+                                    : Icon(Icons.arrow_upward_rounded, color: theme.colorScheme.onPrimary),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.darkBackground : theme.scaffoldBackgroundColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: theme.dividerColor),
-                            ),
-                            child: TextField(
-                              controller: _commentController,
-                              minLines: 1,
-                              maxLines: 4,
-                              textCapitalization: TextCapitalization.sentences,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: replyingToName == null ? 'Add a comment...' : 'Write a reply...',
-                                hintStyle: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          height: 44,
-                          width: 44,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            onPressed: _isSubmittingComment ? null : _submitComment,
-                            icon: _isSubmittingComment
-                                ? SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: theme.colorScheme.onPrimary,
-                                    ),
-                                  )
-                                : Icon(Icons.arrow_upward_rounded, color: theme.colorScheme.onPrimary),
-                          ),
-                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -797,106 +823,117 @@ class _UnifiedCommentCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final authorLabel = comment.userId == currentUserId ? 'You' : comment.authorName;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-              child: Text(
-                authorLabel.isEmpty ? 'M' : authorLabel[0].toUpperCase(),
-                style: TextStyle(
-                  color: theme.colorScheme.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Row(
-                children: [
-                  Text(
-                    authorLabel,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    comment.relativeCreatedAt,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 36, top: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      width: double.infinity,
+      padding: isReply ? const EdgeInsets.all(12) : const EdgeInsets.all(0),
+      decoration: isReply
+          ? BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+            )
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                comment.content,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.4,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF374151),
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                child: Text(
+                  authorLabel.isEmpty ? 'M' : authorLabel[0].toUpperCase(),
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: onLikeTap,
-                    child: Row(
-                      children: [
-                        Icon(
-                          comment.youLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          size: 16,
-                          color: comment.youLiked ? Colors.redAccent : theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${comment.likeCount}',
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      authorLabel,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      comment.relativeCreatedAt,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 36, top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  comment.content,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF374151),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: onLikeTap,
+                      child: Row(
+                        children: [
+                          Icon(
+                            comment.youLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            size: 16,
+                            color: comment.youLiked ? Colors.redAccent : theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${comment.likeCount}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    if (!isReply && onReplyTap != null)
+                      GestureDetector(
+                        onTap: onReplyTap,
+                        child: Text(
+                          'Reply',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  if (!isReply && onReplyTap != null)
-                    GestureDetector(
-                      onTap: onReplyTap,
-                      child: Text(
-                        'Reply',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
                       ),
-                    ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -914,16 +951,22 @@ class _GlassIconButton extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.black.withOpacity(0.6)
-              : Colors.white.withOpacity(0.75),
-          shape: BoxShape.circle,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: theme.colorScheme.onSurface, size: 20),
+          ),
         ),
-        child: Icon(icon, color: theme.colorScheme.onSurface, size: 20),
       ),
     );
   }
