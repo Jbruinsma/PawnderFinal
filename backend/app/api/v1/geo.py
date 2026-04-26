@@ -10,7 +10,7 @@ from app.crud.crud_geo import (
     get_neighborhood_feed as get_neighborhood_feed_crud,
     search_posts_by_radius as search_posts_by_radius_crud,
 )
-from app.database import get_db
+from app.core.database import get_db
 from app.models.user import User
 from app.schemas.post import PostSearchResponse
 

@@ -14,7 +14,7 @@ from app.crud.crud_post import (
     create_post as db_create_post, bookmark_post_for_user,
     retrieve_posts_with_stats, retrieve_post_likes, get_post_stats_columns
 )
-from app.database import get_db
+from app.core.database import get_db
 from app.models import Community, User, user_communities, Post, Tag, PostLikes, PostComments, CommentLikes
 from app.schemas.common import Message
 from app.schemas.community import NeighborhoodResponseModel, Neighborhood, CommunityCreateRequest, CommunityCreateResponse

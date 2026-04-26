@@ -9,7 +9,7 @@ from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.v1 import auth, geo, community, messages, search
-from .database import engine, get_db
+from app.core.database import engine, get_db
 from . import models
 
 load_dotenv()
