@@ -18,6 +18,7 @@ class Community(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=True)
+    image_url: Mapped[str] = mapped_column(String, nullable=True)
     geofence_boundary = mapped_column(Geometry(geometry_type='POLYGON', srid=4326))
 
     members = relationship("User", secondary=user_communities, back_populates="joined_communities")
