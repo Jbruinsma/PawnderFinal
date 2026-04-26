@@ -41,14 +41,15 @@ class CommunityService {
     final response = await _apiClient.get<Map<String, dynamic>>(
       '/community/neighborhoods/$communityId',
     );
-    final communityJson = response.data?['community'] as Map<String, dynamic>? ?? response.data ?? const {};
+    final communityJson =
+        response.data?['community'] as Map<String, dynamic>? ??
+        response.data ??
+        const {};
     return Community.fromJson(communityJson);
   }
 
   Future<void> joinNeighborhood({required String communityId}) async {
-    await _apiClient.post<void>(
-      '/community/neighborhoods/$communityId/join',
-    );
+    await _apiClient.post<void>('/community/neighborhoods/$communityId/join');
   }
 
   Future<Community> createNeighborhood({
@@ -56,6 +57,7 @@ class CommunityService {
     required String description,
     required double latitude,
     required double longitude,
+    String? image_url,
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/community/neighborhoods',
@@ -64,6 +66,7 @@ class CommunityService {
         'description': description,
         'latitude': latitude,
         'longitude': longitude,
+        if (image_url != null) 'image_url': image_url,
       },
     );
 
