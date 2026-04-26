@@ -1,5 +1,8 @@
 from uuid import UUID
+
 from geoalchemy2 import Geometry
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Point
 from sqlalchemy import select, desc, and_, func, cast
 from sqlalchemy.orm import Session, defer
 
@@ -63,7 +66,10 @@ def create_post(
         title=payload.title,
         description=payload.description,
         image_url=payload.image_url,
-        location=f"POINT({payload.location.longitude} {payload.location.latitude})",
+        location= from_shape(
+            Point(payload.location.longitude, payload.location.latitude),
+            srid=4326
+        ),
         tags=list(existing_tags)
     )
 
