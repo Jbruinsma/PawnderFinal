@@ -204,7 +204,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
           const SizedBox(height: 20),
           _MenuTile(
-            label: 'MY LISTINGS',
+            label: 'MY POSTS',
             icon: Icons.list_alt_rounded,
             onTap: user == null
                 ? null
@@ -213,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => UserPostsScreen(
-                          title: 'My Listings',
+                          title: 'My Posts',
                           subtitle: 'Posts you\'ve created',
                           icon: Icons.list_alt_rounded,
                           loadPosts: () =>

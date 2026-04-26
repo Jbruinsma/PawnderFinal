@@ -9,7 +9,6 @@ import 'package:pawnder_app/screens/home/chat_screen.dart';
 import 'package:pawnder_app/screens/home/community_screen.dart';
 import 'package:pawnder_app/screens/home/create_community_screen.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
-import 'package:pawnder_app/screens/home/missing_post_details_screen.dart';
 import 'package:pawnder_app/screens/home/profile_screen.dart';
 import 'package:pawnder_app/screens/home/unified_post_detail_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
@@ -317,96 +316,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<bool> _confirmJoinCommunity(Community community) async {
-    final theme = Theme.of(context);
-
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            title: Row(
-              children: [
-                Icon(Icons.groups_2_outlined, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Join community?',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              'Would you like to join ${community.name} before opening it? You will start seeing its activity as one of your communities.',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Not now'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Join'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
   Future<void> _handleCommunityTap(Community community) async {
     final selectedCommunityId = community.id;
     if (!mounted) return;
 
-    if (_currentUser != null) {
-      final isAlreadyJoined = _joinedCommunityIds.contains(selectedCommunityId);
-
-      if (!isAlreadyJoined) {
-        final shouldJoin = await _confirmJoinCommunity(community);
-        if (!shouldJoin || !mounted) {
-          return;
-        }
-
-        try {
-          await _communityService.joinNeighborhood(
-            communityId: selectedCommunityId,
-          );
-          if (mounted) {
-            setState(() {
-              _joinedCommunityIds = {
-                ..._joinedCommunityIds,
-                selectedCommunityId,
-              };
-            });
-          }
-        } catch (_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Could not join this community right now.'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      if (mounted) {
-        setState(() => _selectedCommunityName = community.name);
-      }
-    } else if (mounted) {
-      setState(() => _selectedCommunityName = community.name);
-    }
-
-    if (!mounted) return;
+    setState(() => _selectedCommunityName = community.name);
 
     final communityPosts = await _getCommunityFeedPosts(
       communityId: selectedCommunityId,
@@ -418,15 +332,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => CommunityPostsScreen(
-          title: community.name,
+          community: community,
           posts: communityPosts,
-          communityId: selectedCommunityId,
-          onPostTap: (post) => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MissingPostDetailsScreen(post: post.toFeedMap()),
-            ),
-          ),
           onAddListingTap: () async {
             if (_currentUser == null) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -442,7 +349,8 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(
                 builder: (_) => ListingScreen(
                   authorId: _currentUser!.id,
-                  communityId: community.id,
+                  communities: _nearbyCommunities,
+                  initialCommunityId: community.id,
                 ),
               ),
             );
