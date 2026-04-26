@@ -2,7 +2,7 @@ from geoalchemy2.shape import from_shape
 from shapely.geometry import Point, Polygon
 
 from app.core.security import get_password_hash
-from app.database import SessionLocal
+from app.core.database import SessionLocal
 from app.models.community import Community
 from app.models.post import Post, Tag
 from app.models.user import User

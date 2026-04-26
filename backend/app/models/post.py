@@ -1,12 +1,12 @@
 import uuid
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, String, Text, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import String, Text, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
 
-from app.database import Base
+from app.core.database import Base
 from app.models.user import post_tags
 
 class Post(Base):

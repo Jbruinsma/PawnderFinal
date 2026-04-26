@@ -3,12 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import manager
 from app.core.security import get_current_user
-from app.database import get_db
+from app.core.database import get_db
 from app.models import Message
 from app.models.user import User
 

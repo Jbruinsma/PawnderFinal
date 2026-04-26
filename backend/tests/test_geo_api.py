@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.api.v1 import geo
 from app.core.security import get_current_user
-from app.database import get_db
+from app.core.database import get_db
 from app.main import app
 
 
