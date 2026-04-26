@@ -214,7 +214,7 @@ class _ListingScreenState extends State<ListingScreen> {
               ),
               const SizedBox(height: 18),
               const HomeHeader(
-                title: 'CREATE LISTING',
+                title: 'CREATE POST',
                 subtitle: 'Share a quick alert with your neighborhood',
                 icon: Icons.add_location_alt_outlined,
               ),
@@ -386,7 +386,7 @@ class _ListingScreenState extends State<ListingScreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'Add listing photo',
+                                    'Add post',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -462,7 +462,7 @@ class _ListingScreenState extends State<ListingScreen> {
                                 ),
                               )
                             : const Text(
-                                'Post Listing',
+                                'Upload Post',
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w900,
