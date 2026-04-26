@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, defer
 from app.core.security import get_current_user
 from app.crud.crud_community import get_community_stats_query
 from app.crud.crud_post import get_post_stats_columns
-from app.database import get_db
+from app.core.database import get_db
 from app.models import User, Community, Post
 from app.utils.formatting_utils import format_post_with_stats, format_neighborhood_with_stats
 

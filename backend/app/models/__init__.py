@@ -1,4 +1,4 @@
-from ..database import Base
+from app.core.database import Base
 
 from .user import User, bookmarks, user_communities
 from .post import Post, Tag, post_tags, PostLikes, PostComments, CommentLikes
