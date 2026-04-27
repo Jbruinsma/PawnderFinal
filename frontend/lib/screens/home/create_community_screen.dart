@@ -297,7 +297,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: const Text(
-                      'Add first listing',
+                      'Create a First Post!',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

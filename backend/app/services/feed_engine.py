@@ -82,7 +82,7 @@ def generate_algorithmic_feed(
             joinedload(Post.tags),
             defer(Post.location)
         )
-        .where(post_distance < 80467)
+        .where(and_(post_distance < 80467, Post.author_id != current_user.id))
         .order_by(desc(score))
         .limit(25)
     )

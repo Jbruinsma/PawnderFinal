@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/models/current_user.dart';
@@ -28,6 +29,7 @@ import 'package:pawnder_app/widgets/build_category_row.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/widgets/build_pet_list.dart';
 import 'package:pawnder_app/widgets/community_card.dart';
+import 'package:pawnder_app/widgets/location_lock_overlay.dart';
 import 'package:pawnder_app/widgets/search_bar.dart';
 import 'package:pawnder_app/widgets/search_status.dart';
 
@@ -44,7 +46,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _authService = AuthService();
   final _communityService = CommunityService();
   final _locationService = LocationService();
@@ -64,6 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Set<String> _joinedCommunityIds = const {};
   bool _isLoadingCommunityPosts = false;
   bool _shouldShowFallbackPets = true;
+  bool _isLocationBlocked = false;
+  bool _isFetchingFeed = true;
   int _messageBadgeCount = 0;
   StreamSubscription? _messageSubscription;
   Future<PostLocation?>? _locationFuture;
@@ -91,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedNavIndex = widget.initialNavIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeHome();
@@ -99,10 +104,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _messageSubscription?.cancel();
     _searchDebounce?.cancel();
     _searchCancelToken?.cancel('disposed');
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isLocationBlocked) {
+      _checkLocationStatus();
+    }
+  }
+
+  Future<void> _checkLocationStatus() async {
+    final status = await _locationService.checkPermissionStatus();
+    if (mounted) {
+      setState(() {
+        _isLocationBlocked = status == LocationPermission.denied ||
+                             status == LocationPermission.deniedForever;
+      });
+      if (!_isLocationBlocked) {
+        _loadCommunityData();
+      }
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -190,6 +216,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeHome() async {
+    await _checkLocationStatus();
+
+    if (_isLocationBlocked) {
+      return;
+    }
+
     try {
       _currentUser = await _authService.getCurrentUser();
     } catch (_) {
@@ -229,6 +261,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleNavTap(int index) {
+    if (_isLocationBlocked) return;
+
     setState(() {
       _selectedNavIndex = index;
       if (index == 2) {
@@ -264,7 +298,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCommunityData() async {
-    setState(() => _isLoadingCommunityPosts = true);
+    setState(() {
+      _isLoadingCommunityPosts = true;
+      _isFetchingFeed = true;
+    });
 
     try {
       _currentUser = await _authService.getCurrentUser();
@@ -320,6 +357,10 @@ class _HomeScreenState extends State<HomeScreen> {
     double lon, {
     required bool isSilentUpdate,
   }) async {
+    if (!isSilentUpdate && mounted) {
+      setState(() => _isFetchingFeed = true);
+    }
+
     if (_currentUser == null) {
       try {
         _currentUser = await _authService.getCurrentUser();
@@ -393,6 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _nearbyPets = posts.map((post) => post.toPetMap()).toList();
         _shouldShowFallbackPets = _nearbyPets.isEmpty;
         _feedCategories = tags;
+        _isFetchingFeed = false;
         if (!isSilentUpdate) {
           _isLoadingCommunityPosts = false;
         }
@@ -554,31 +596,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      body: Container(
-        decoration: AppTheme.backgroundDecoration(context),
-        child: SafeArea(
-          child: switch (_selectedNavIndex) {
-            1 => CommunityScreen(
-              communities: _nearbyCommunities,
-              selectedCommunityName: _selectedCommunityName,
-              isLoading: _isLoadingCommunityPosts,
-              onCreateCommunityTap: _openCreateCommunityScreen,
-              onCreatePostTap: _openCreatePostScreen,
-              onCommunityTap: _handleCommunityTap,
+    return Stack(
+      children: [
+        Scaffold(
+          extendBodyBehindAppBar: true,
+          body: Container(
+            decoration: AppTheme.backgroundDecoration(context),
+            child: SafeArea(
+              child: switch (_selectedNavIndex) {
+                1 => CommunityScreen(
+                  communities: _nearbyCommunities,
+                  selectedCommunityName: _selectedCommunityName,
+                  isLoading: _isLoadingCommunityPosts,
+                  onCreateCommunityTap: _openCreateCommunityScreen,
+                  onCreatePostTap: _openCreatePostScreen,
+                  onCommunityTap: _handleCommunityTap,
+                  onRefresh: _loadCommunityData,
+                ),
+                2 => const ChatScreen(),
+                3 => const ProfileScreen(),
+                _ => _buildAdoptionView(context),
+              },
             ),
-            2 => const ChatScreen(),
-            3 => const ProfileScreen(),
-            _ => _buildAdoptionView(context),
-          },
+          ),
+          bottomNavigationBar: buildBottomNav(
+            selectedNavIndex: _selectedNavIndex,
+            messageBadgeCount: _messageBadgeCount,
+            onNavTap: _handleNavTap,
+          ),
         ),
-      ),
-      bottomNavigationBar: buildBottomNav(
-        selectedNavIndex: _selectedNavIndex,
-        messageBadgeCount: _messageBadgeCount,
-        onNavTap: _handleNavTap,
-      ),
+        if (_isLocationBlocked)
+          LocationLockOverlay(
+            onOpenSettings: () async {
+              await _locationService.openDeviceSettings();
+            },
+          ),
+      ],
     );
   }
 
@@ -675,42 +728,49 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: isResultsMode
                     ? _buildSearchResultsView(headerTextColor)
-                    : (recommendedPostMaps.isNotEmpty
-                          ? buildCommunityPostsFeed(
-                              posts: recommendedPostMaps,
-                              searchQuery: _searchQuery,
-                              currentUserId: _currentUser?.id,
-                              onPostTap: (postMap) {
-                                Navigator.push(
+                    : (_isFetchingFeed
+                        ? Center(
+                            child: CircularProgressIndicator(
+                              color: Theme.of(context).colorScheme.primary,
+                              strokeWidth: 3,
+                            ),
+                          )
+                        : (recommendedPostMaps.isNotEmpty
+                            ? buildCommunityPostsFeed(
+                                posts: recommendedPostMaps,
+                                searchQuery: _searchQuery,
+                                currentUserId: _currentUser?.id,
+                                onPostTap: (postMap) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          UnifiedPostDetailScreen(post: postMap),
+                                    ),
+                                  );
+                                },
+                                onCommentTap: (postMap) async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          UnifiedPostDetailScreen(post: postMap),
+                                    ),
+                                  );
+                                },
+                              )
+                            : buildPetList(
+                                pets: _visiblePets,
+                                selectedCategory: _selectedCategory,
+                                searchQuery: _searchQuery,
+                                onPetTap: (pet) => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) =>
-                                        UnifiedPostDetailScreen(post: postMap),
+                                        UnifiedPostDetailScreen(post: pet),
                                   ),
-                                );
-                              },
-                              onCommentTap: (postMap) async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        UnifiedPostDetailScreen(post: postMap),
-                                  ),
-                                );
-                              },
-                            )
-                          : buildPetList(
-                              pets: _visiblePets,
-                              selectedCategory: _selectedCategory,
-                              searchQuery: _searchQuery,
-                              onPetTap: (pet) => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      UnifiedPostDetailScreen(post: pet),
                                 ),
-                              ),
-                            )),
+                              ))),
               ),
             ],
           ),

@@ -2,7 +2,7 @@ from typing import Optional, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Depends, HTTPException
-from sqlalchemy import func, select, and_, Row, desc, union_all, delete
+from sqlalchemy import func, select, and_, Row, desc, union_all, delete, case
 from sqlalchemy.orm import Session, defer
 from starlette import status
 from geoalchemy2.shape import from_shape
@@ -85,14 +85,34 @@ def get_neighborhoods(
         current_user: User = Depends(get_current_user),
         session: Session = Depends(get_db)
 ):
-    user_point: str = func.ST_SetSRID(
+    user_point = func.ST_SetSRID(
         func.ST_MakePoint(coords.longitude, coords.latitude),
         4326
     )
 
+    member_count_subq = (
+        select(func.count(user_communities.c.user_id))
+        .where(user_communities.c.community_id == Community.id)
+        .correlate(Community)
+        .scalar_subquery()
+    )
+
+    distance = func.ST_Distance(Community.geofence_boundary, user_point)
+    is_member_expr = user_communities.c.user_id.isnot(None)
+
+    MEMBER_BOOST = 0.3
+    POPULARITY_WEIGHT = 0.02
+    DISTANCE_WEIGHT = 1.0
+
+    score = (
+        case((is_member_expr, MEMBER_BOOST), else_=0.0)
+        + func.ln(1 + func.coalesce(member_count_subq, 0)) * POPULARITY_WEIGHT
+        - distance * DISTANCE_WEIGHT
+    )
+
     base_stmt = (
         select(Community)
-        .order_by(func.ST_Distance(Community.geofence_boundary, user_point))
+        .order_by(desc(score))
     )
 
     stmt = get_community_stats_query(current_user.id, base_stmt)

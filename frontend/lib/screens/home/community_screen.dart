@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community.dart';
+import 'package:pawnder_app/services/api_client.dart';
 import 'package:pawnder_app/services/search_service.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
 import 'package:pawnder_app/widgets/community_card.dart';
@@ -17,6 +18,7 @@ class CommunityScreen extends StatefulWidget {
   final VoidCallback onCreateCommunityTap;
   final VoidCallback onCreatePostTap;
   final ValueChanged<Community> onCommunityTap;
+  final Future<void> Function() onRefresh;
 
   const CommunityScreen({
     super.key,
@@ -26,6 +28,7 @@ class CommunityScreen extends StatefulWidget {
     required this.onCreateCommunityTap,
     required this.onCreatePostTap,
     required this.onCommunityTap,
+    required this.onRefresh,
   });
 
   @override
@@ -34,6 +37,7 @@ class CommunityScreen extends StatefulWidget {
 
 class _CommunityScreenState extends State<CommunityScreen> {
   final SearchService _searchService = SearchService();
+  final ApiClient _apiClient = ApiClient();
 
   bool _isCreateMenuExpanded = false;
   String _searchQuery = '';
@@ -158,7 +162,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
             hintText: 'Search communities...',
           ),
           const SizedBox(height: 16),
-          Expanded(child: _buildBody()),
+          Expanded(
+            child: RefreshIndicator(
+              color: theme.colorScheme.primary,
+              backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+              onRefresh: widget.onRefresh,
+              child: _buildBody(),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 12),
             child: Align(
@@ -181,10 +192,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 style: FilledButton.styleFrom(
                                   backgroundColor: theme.colorScheme.primary,
                                   foregroundColor: theme.colorScheme.onPrimary,
-                                  elevation:
-                                      theme.brightness == Brightness.dark
-                                      ? 0
-                                      : 2,
+                                  elevation: theme.brightness == Brightness.dark ? 0 : 2,
                                   shadowColor: const Color(0x18000000),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 20,
@@ -216,11 +224,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                     style: FilledButton.styleFrom(
                                       backgroundColor: isDark
                                           ? Colors.white.withValues(alpha: 0.1)
-                                          : Colors.black.withValues(
-                                              alpha: 0.05,
-                                            ),
-                                      foregroundColor:
-                                          theme.colorScheme.onSurface,
+                                          : Colors.black.withValues(alpha: 0.05),
+                                      foregroundColor: theme.colorScheme.onSurface,
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 18,
                                         vertical: 14,
@@ -246,7 +251,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                   IconButton.filled(
                     onPressed: _toggleCreateMenu,
-                    style: FilledButton.styleFrom(
+                    style: IconButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
                       foregroundColor: theme.colorScheme.onPrimary,
                       elevation: theme.brightness == Brightness.dark ? 0 : 2,
@@ -254,9 +259,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       padding: const EdgeInsets.all(14),
                     ),
                     icon: Icon(
-                      _isCreateMenuExpanded
-                          ? Icons.close_rounded
-                          : Icons.add_rounded,
+                      _isCreateMenuExpanded ? Icons.close_rounded : Icons.add_rounded,
                       size: 26,
                     ),
                   ),
@@ -272,26 +275,31 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget _buildBody() {
     if (_hasActiveQuery) {
       if (_isSearching && _searchResults.isEmpty) {
-        return SearchStatus.loading();
+        return _buildScrollableStatus(SearchStatus.loading());
       }
       if (_searchError != null) {
-        return SearchStatus(
-          icon: Icons.cloud_off_rounded,
-          title: 'Couldn\'t search right now',
-          subtitle: 'Check your connection and try again.',
-          onRetry: _retrySearch,
+        return _buildScrollableStatus(
+          SearchStatus(
+            icon: Icons.cloud_off_rounded,
+            title: 'Couldn\'t search right now',
+            subtitle: 'Check your connection and try again.',
+            onRetry: _retrySearch,
+          ),
         );
       }
       if (_searchResults.isEmpty) {
-        return SearchStatus(
-          icon: Icons.search_off_rounded,
-          title: 'No results for "${_searchQuery.trim()}"',
-          subtitle: 'Try a different keyword or community name.',
+        return _buildScrollableStatus(
+          SearchStatus(
+            icon: Icons.search_off_rounded,
+            title: 'No results for "${_searchQuery.trim()}"',
+            subtitle: 'Try a different keyword or community name.',
+          ),
         );
       }
       return ListView.separated(
         padding: const EdgeInsets.only(bottom: 24),
         itemCount: _searchResults.length,
+        physics: const AlwaysScrollableScrollPhysics(),
         separatorBuilder: (context, index) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
           final community = _searchResults[index];
@@ -305,17 +313,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
 
     if (widget.communities.isEmpty) {
-      return SearchStatus(
-        icon: widget.isLoading ? Icons.travel_explore_rounded : Icons.groups_outlined,
-        title: widget.isLoading
-            ? 'Loading nearby neighborhoods...'
-            : 'No neighborhoods are available yet.',
+      return _buildScrollableStatus(
+        SearchStatus(
+          icon: widget.isLoading ? Icons.travel_explore_rounded : Icons.groups_outlined,
+          title: widget.isLoading
+              ? 'Loading nearby neighborhoods...'
+              : 'No neighborhoods are available yet.',
+        ),
       );
     }
 
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 148),
       itemCount: widget.communities.length,
+      physics: const AlwaysScrollableScrollPhysics(),
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final community = widget.communities[index];
@@ -323,6 +334,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
           community: community,
           isSelected: community.name == widget.selectedCommunityName,
           onTap: () => widget.onCommunityTap(community),
+        );
+      },
+    );
+  }
+
+  Widget _buildScrollableStatus(Widget status) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: status),
+          ),
         );
       },
     );

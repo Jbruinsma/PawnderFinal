@@ -13,6 +13,21 @@ class LocationService {
 
   static const _homeLocationPromptKeyPrefix = 'home_location_prompt_seen_';
 
+  Future<LocationPermission> checkPermissionStatus() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return LocationPermission.denied;
+      }
+      return await Geolocator.checkPermission();
+    } catch (_) {
+      return LocationPermission.denied;
+    }
+  }
+
+  Future<bool> openDeviceSettings() async {
+    return await Geolocator.openAppSettings();
+  }
+
   Future<bool> shouldPromptForFirstHomeLaunch({required String userId}) async {
     final stored = await _storage.read(
       key: '$_homeLocationPromptKeyPrefix$userId',
