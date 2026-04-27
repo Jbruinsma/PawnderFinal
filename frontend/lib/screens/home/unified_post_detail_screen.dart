@@ -1,6 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/models/community_post.dart';
+import 'package:pawnder_app/screens/home/community_posts_screen.dart';
+import 'package:pawnder_app/screens/home/listing_screen.dart';
 import 'package:pawnder_app/screens/home/message_thread_screen.dart';
 import 'package:pawnder_app/services/auth_service.dart';
 import 'package:pawnder_app/services/community_service.dart';
@@ -39,7 +42,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   bool _isSubmittingComment = false;
   String? _currentUserId;
   String? _replyingToCommentId;
-  String? _communityName;
+  Community? _community;
 
   @override
   void initState() {
@@ -66,7 +69,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
 
       final commId = widget.post['communityId'];
       if (commId != null && commId.isNotEmpty) {
-        _fetchCommunityName(commId);
+        _fetchCommunity(commId);
       }
 
       await Future.wait([
@@ -84,11 +87,11 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
     }
   }
 
-  Future<void> _fetchCommunityName(String commId) async {
+  Future<void> _fetchCommunity(String commId) async {
     try {
       final comm = await _communityService.getCommunityById(communityId: commId);
       if (mounted) {
-        setState(() => _communityName = comm.name);
+        setState(() => _community = comm);
       }
     } catch (_) {}
   }
@@ -289,6 +292,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final post = widget.post;
+    final hasImage = (post['image'] ?? '').trim().isNotEmpty;
     final tags = (post['tags'] ?? '')
         .split('|')
         .where((tag) => tag.trim().isNotEmpty)
@@ -316,7 +320,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
             child: CustomScrollView(
               slivers: [
                 SliverAppBar(
-                  expandedHeight: MediaQuery.sizeOf(context).height * 0.45,
+                  expandedHeight: hasImage ? MediaQuery.sizeOf(context).height * 0.45 : null,
                   pinned: true,
                   backgroundColor: theme.scaffoldBackgroundColor,
                   leading: Padding(
@@ -350,63 +354,65 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                             ),
                     ),
                   ],
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        PetImage(
-                          image: post['image'],
-                          height: double.infinity,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          seed: post['id'] ?? post['title'] ?? '',
-                        ),
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.4),
-                                Colors.transparent,
-                                theme.scaffoldBackgroundColor,
-                              ],
-                              stops: const [0.0, 0.5, 1.0],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 18,
-                          bottom: 24,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  flexibleSpace: hasImage
+                      ? FlexibleSpaceBar(
+                          background: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              PetImage(
+                                image: post['image'],
+                                height: double.infinity,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                seed: post['id'] ?? post['title'] ?? '',
+                              ),
+                              DecoratedBox(
                                 decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.black.withValues(alpha: 0.5)
-                                      : Colors.white.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: theme.dividerColor.withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                child: Text(
-                                  (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.onSurface,
-                                    fontWeight: FontWeight.w900,
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.4),
+                                      Colors.transparent,
+                                      theme.scaffoldBackgroundColor,
+                                    ],
+                                    stops: const [0.0, 0.5, 1.0],
                                   ),
                                 ),
                               ),
-                            ),
+                              Positioned(
+                                left: 18,
+                                bottom: 24,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? Colors.black.withValues(alpha: 0.5)
+                                            : Colors.white.withValues(alpha: 0.6),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: theme.dividerColor.withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        )
+                      : null,
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
@@ -414,20 +420,55 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_communityName != null) ...[
-                          Row(
-                            children: [
-                              Icon(Icons.location_on_rounded, size: 14, color: theme.colorScheme.primary),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Posted in $_communityName',
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
+                        if (_community != null) ...[
+                          GestureDetector(
+                            onTap: () async {
+                              final community = _community;
+                              if (community == null) return;
+                              final posts = await _postService.getCommunityPosts(communityId: community.id, limit: 50);
+                              if (!mounted) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CommunityPostsScreen(
+                                    community: community,
+                                    posts: posts,
+                                    onAddListingTap: () async {
+                                      if (_currentUserId == null) return;
+                                      final didCreate = await Navigator.push<bool>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ListingScreen(
+                                            authorId: _currentUserId!,
+                                            communities: [community],
+                                            initialCommunityId: community.id,
+                                          ),
+                                        ),
+                                      );
+                                      if (didCreate == true && mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ],
+                              );
+                            },
+                            child: Row(
+                              children: [
+                                Icon(Icons.location_on_rounded, size: 14, color: theme.colorScheme.primary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Posted in ${_community!.name}',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.chevron_right_rounded, size: 16, color: theme.colorScheme.primary),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -482,35 +523,42 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        if (tags.isNotEmpty) ...[
+                        if (tags.isNotEmpty || !hasImage) ...[
                           const SizedBox(height: 14),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: tags.map((tag) => ClipRRect(
-                              borderRadius: BorderRadius.circular(999),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : Colors.black.withValues(alpha: 0.03),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(color: theme.dividerColor),
-                                  ),
-                                  child: Text(
-                                    tag,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSurface,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (!hasImage)
+                                _StatusBadge(
+                                  label: (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
+                                ),
+                              ...tags.map((tag) => ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.black.withValues(alpha: 0.03),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(color: theme.dividerColor),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            )).toList(),
+                              )).toList(),
+                            ],
                           ),
                         ],
                         const SizedBox(height: 16),
@@ -966,6 +1014,36 @@ class _GlassIconButton extends StatelessWidget {
             ),
             child: Icon(icon, color: theme.colorScheme.onSurface, size: 20),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+
+  const _StatusBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
