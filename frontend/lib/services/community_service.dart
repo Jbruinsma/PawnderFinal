@@ -66,7 +66,7 @@ class CommunityService {
         'description': description,
         'latitude': latitude,
         'longitude': longitude,
-        if (image_url != null) 'image_url': image_url,
+        'image_url': ?image_url,
       },
     );
 

@@ -21,7 +21,7 @@ class CommunityCreateRequest(BaseModel):
     description: str
     latitude: float
     longitude: float
-    # image: ?? Need help with this
+    image_url: Optional[str] = None
 
 
 class CommunityCreateResponse(BaseModel):
