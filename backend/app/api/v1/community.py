@@ -466,8 +466,8 @@ async def like_post(
         message="Post liked successfully",
         post_id=post_id,
         new_like_count=retrieve_post_likes(
-            session=session,
-            post_id=post_id
+            session= session,
+            post_id= post_id
         )
     )
 

@@ -8,7 +8,7 @@ from app.core.security import get_current_user
 from app.crud.crud_community import get_community_stats_query
 from app.crud.crud_post import get_post_stats_columns
 from app.core.database import get_db
-from app.models import User, Community, Post
+from app.models import User, Community, Post, Tag
 from app.utils.formatting_utils import format_post_with_stats, format_neighborhood_with_stats
 
 router = APIRouter(prefix="/search")
@@ -76,6 +76,34 @@ def _post_search_clauses(q: str):
     return fts_match, trigram_match, rank
 
 
+def _tag_search_clauses(q: str):
+    name_vector = func.setweight(
+        func.to_tsvector('english', Tag.name), 'A'
+    )
+    category_vector = func.setweight(
+        func.to_tsvector('english', Tag.category), 'B'
+    )
+    tag_vector = name_vector.op('||')(category_vector)
+    ts_query = func.websearch_to_tsquery('english', q)
+
+    name_similarity = func.similarity(Tag.name, q)
+    category_similarity = func.similarity(Tag.category, q)
+
+    fts_match = tag_vector.op('@@')(ts_query)
+    trigram_match = or_(
+        name_similarity > SIMILARITY_THRESHOLD,
+        category_similarity > SIMILARITY_THRESHOLD,
+    )
+
+    rank = (
+            func.ts_rank_cd(tag_vector, ts_query)
+            + name_similarity * 2.0
+            + category_similarity
+    )
+
+    return fts_match, trigram_match, rank
+
+
 @router.get("/all")
 async def general_search(
         q: Annotated[str, Query(min_length=1)],
@@ -134,3 +162,28 @@ async def community_search(
     community_rows = session.execute(community_stmt).all()
 
     return [format_neighborhood_with_stats(row) for row in community_rows]
+
+
+@router.get("/tags")
+async def tag_search(
+        q: Annotated[str, Query(min_length=1)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 5,
+        offset: Annotated[int, Query(ge=0)] = 0,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    t_fts, t_trgm, t_rank = _tag_search_clauses(q)
+
+    tag_stmt = (
+        select(Tag)
+        .where(or_(t_fts, t_trgm))
+        .order_by(desc(t_rank))
+        .offset(offset)
+        .limit(limit)
+    )
+    tags = session.execute(tag_stmt).scalars().all()
+
+    return [
+        {"id": tag.id, "name": tag.name, "category": tag.category}
+        for tag in tags
+    ]
