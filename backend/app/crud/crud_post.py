@@ -1,5 +1,5 @@
 from uuid import UUID
-
+from sqlalchemy.exc import IntegrityError
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
@@ -59,18 +59,38 @@ def create_post(
         select(Tag).where(Tag.name.in_(payload.tags))
     ).scalars().all()
 
+    existing_tag_names = {tag.name for tag in existing_tags}
+    new_tag_names = set(payload.tags) - existing_tag_names
+
+    final_tags = list(existing_tags)
+
+    for name in new_tag_names:
+        try:
+            with session.begin_nested():
+                new_tag = Tag(name=name)
+                session.add(new_tag)
+                session.flush()
+                final_tags.append(new_tag)
+        except IntegrityError:
+            recovered_tag = session.execute(
+                select(Tag).where(Tag.name == name)
+            ).scalar_one_or_none()
+            if recovered_tag:
+                final_tags.append(recovered_tag)
+            continue
+
     new_post = Post(
-        author_id=payload.author_id,
-        community_id=payload.community_id,
-        post_type=payload.post_type,
-        title=payload.title,
-        description=payload.description,
-        image_url=payload.image_url,
+        author_id= payload.author_id,
+        community_id= payload.community_id,
+        post_type= payload.post_type,
+        title= payload.title,
+        description= payload.description,
+        image_url= payload.image_url,
         location= from_shape(
             Point(payload.location.longitude, payload.location.latitude),
-            srid=4326
+            srid= 4326
         ),
-        tags=list(existing_tags)
+        tags= final_tags
     )
 
     session.add(new_post)

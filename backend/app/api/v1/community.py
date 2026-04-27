@@ -318,7 +318,6 @@ def create_post(
             select(Community.id).where(Community.id == payload.community_id)
         )
     )
-
     combined_check = session.execute(stmt).scalars().all()
 
     if len(combined_check) < 2:

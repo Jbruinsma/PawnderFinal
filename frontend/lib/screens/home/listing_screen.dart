@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -12,6 +13,7 @@ import 'package:pawnder_app/theme.dart';
 import 'package:pawnder_app/widgets/build_header.dart';
 import 'package:pawnder_app/widgets/image_picker_card.dart';
 import 'package:pawnder_app/widgets/input_card.dart';
+import 'package:pawnder_app/widgets/search_bar.dart';
 
 class ListingScreen extends StatefulWidget {
   final String? authorId;
@@ -34,29 +36,32 @@ class ListingScreen extends StatefulWidget {
 class _ListingScreenState extends State<ListingScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _tagSearchController = TextEditingController();
   final _postService = PostService();
   final _apiClient = ApiClient();
   final _locationService = LocationService();
   final _uploadService = UploadService();
 
   final List<String> _selectedTags = [];
+  List<dynamic> _searchResults = [];
+  Timer? _debounce;
+  bool _isSearching = false;
   Uint8List? _imageBytes;
   String? _imageContentType;
   bool _isSubmitting = false;
   String? _selectedCommunityId;
+  String? _selectedPostType;
 
   static const _defaultLatitude = 40.7128;
   static const _defaultLongitude = -74.0060;
 
-  static const List<String> _availableTags = [
-    'Rodent',
-    'FoundPet',
-    'Bird',
-    'LostPet',
-    'Cat',
-    'Brooklyn',
-    'Dog',
-    'Queens',
+  final List<String> _postTypes = [
+    'Lost Pet',
+    'Found Pet',
+    'Adoption',
+    'Photos',
+    'Discussion',
+    'Report',
   ];
 
   bool get _shouldShowCommunityPicker =>
@@ -75,27 +80,69 @@ class _ListingScreenState extends State<ListingScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _tagSearchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  void _toggleTag(String tag) {
-    setState(() {
-      if (_selectedTags.contains(tag)) {
-        _selectedTags.remove(tag);
-      } else {
-        _selectedTags.add(tag);
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      setState(() => _isSearching = true);
+      try {
+        final response = await _apiClient.get('/tags', queryParameters: {'q': query});
+        if (mounted) {
+          setState(() {
+            _searchResults = response.data as List<dynamic>;
+            _isSearching = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _isSearching = false);
       }
     });
   }
 
+  void _addTag(String tag) {
+    if (_selectedTags.length >= 5) {
+      _showMessage('Maximum of 5 tags allowed.');
+      return;
+    }
+
+    if (!_selectedTags.contains(tag)) {
+      setState(() {
+        _selectedTags.add(tag);
+        _tagSearchController.clear();
+        _searchResults = [];
+      });
+    }
+  }
+
+  void _removeTag(String tag) {
+    setState(() => _selectedTags.remove(tag));
+  }
+
   Future<void> _submitListing() async {
     FocusScope.of(context).unfocus();
-
     final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
 
     if (title.isEmpty || description.isEmpty) {
       _showMessage('Title and description are required.');
+      return;
+    }
+
+    if (_selectedPostType == null) {
+      _showMessage('Please select a post type.');
       return;
     }
 
@@ -112,37 +159,26 @@ class _ListingScreenState extends State<ListingScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
-    PostLocation location = const PostLocation(
-      latitude: _defaultLatitude,
-      longitude: _defaultLongitude,
-    );
+    PostLocation location = const PostLocation(latitude: _defaultLatitude, longitude: _defaultLongitude);
     try {
       final current = await _locationService.requestAndSaveCurrentLocation();
-      if (current != null) {
-        location = current;
-      }
+      if (current != null) location = current;
     } catch (_) {}
 
     String? imageUrl;
-    final bytes = _imageBytes;
-    final contentType = _imageContentType;
-    if (bytes != null && contentType != null) {
+    if (_imageBytes != null && _imageContentType != null) {
       try {
         imageUrl = await _uploadService.uploadImage(
-          bytes: bytes,
-          contentType: contentType,
+          bytes: _imageBytes!,
+          contentType: _imageContentType!,
           purpose: UploadPurpose.post,
         );
       } catch (error) {
         if (!mounted) return;
         _showMessage(_apiClient.messageForError(error));
-        setState(() {
-          _isSubmitting = false;
-        });
+        setState(() => _isSubmitting = false);
         return;
       }
     }
@@ -152,7 +188,7 @@ class _ListingScreenState extends State<ListingScreen> {
         CreatePostRequest(
           communityId: communityId,
           authorId: authorId,
-          postType: _selectedTags.contains('LostPet') ? 'Lost Pet' : 'Sighting',
+          postType: _selectedPostType!,
           title: title,
           description: description,
           location: location,
@@ -160,25 +196,13 @@ class _ListingScreenState extends State<ListingScreen> {
           imageUrl: imageUrl,
         ),
       );
-
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       _showMessage('Listing posted.');
       Navigator.pop(context, true);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(_apiClient.messageForError(error));
+      if (mounted) _showMessage(_apiClient.messageForError(error));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -207,11 +231,7 @@ class _ListingScreenState extends State<ListingScreen> {
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 32,
-                    color: theme.colorScheme.onSurface,
-                  ),
+                  icon: Icon(Icons.arrow_back_ios_new_rounded, size: 32, color: theme.colorScheme.onSurface),
                 ),
                 const SizedBox(height: 18),
                 const HomeHeader(
@@ -220,10 +240,11 @@ class _ListingScreenState extends State<ListingScreen> {
                   icon: Icons.add_location_alt_outlined,
                 ),
                 const SizedBox(height: 28),
+
                 if (_shouldShowCommunityPicker) ...[
                   InputCard(
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedCommunityId,
+                      value: _selectedCommunityId,
                       isExpanded: true,
                       dropdownColor: isDark ? AppColors.darkSurface : theme.cardColor,
                       decoration: const InputDecoration(
@@ -250,19 +271,39 @@ class _ListingScreenState extends State<ListingScreen> {
                   ),
                   const SizedBox(height: 18),
                 ],
+
+                InputCard(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedPostType,
+                    isExpanded: true,
+                    dropdownColor: isDark ? AppColors.darkSurface : theme.cardColor,
+                    decoration: const InputDecoration(
+                      labelText: 'Post Type',
+                      border: InputBorder.none,
+                    ),
+                    items: _postTypes
+                        .map(
+                          (type) => DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(type),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPostType = value;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 18),
+
                 InputCard(
                   child: TextField(
                     controller: _titleController,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      hintText: 'Title',
-                      border: InputBorder.none,
-                    ),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
+                    decoration: const InputDecoration(hintText: 'Title', border: InputBorder.none),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -273,93 +314,59 @@ class _ListingScreenState extends State<ListingScreen> {
                     maxLines: 6,
                     minLines: 6,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      hintText: 'Add a description',
-                      border: InputBorder.none,
-                    ),
-                    style: TextStyle(
-                      fontSize: 17,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
+                    decoration: const InputDecoration(hintText: 'Add a description', border: InputBorder.none),
+                    style: TextStyle(fontSize: 17, height: 1.35, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
                   ),
                 ),
                 const SizedBox(height: 26),
+
                 Center(
                   child: Text(
                     'ADD TAGS',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: theme.colorScheme.onSurface,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface),
                   ),
                 ),
                 const SizedBox(height: 14),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _availableTags.map((tag) {
-                    final isSelected = _selectedTags.contains(tag);
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: () => _toggleTag(tag),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOut,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 9,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? theme.colorScheme.primary
-                                  : (isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : Colors.black.withValues(alpha: 0.03)),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: isSelected
-                                    ? theme.colorScheme.primary
-                                    : theme.dividerColor,
-                              ),
-                            ),
-                            child: Text(
-                              tag,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: isSelected
-                                    ? theme.colorScheme.onPrimary
-                                    : theme.colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                GlassmorphicSearchBar(
+                  controller: _tagSearchController,
+                  isLoading: _isSearching,
+                  hintText: _selectedTags.length >= 5 ? 'Limit reached' : 'Search or create a tag...',
+                  onChanged: _selectedTags.length >= 5 ? (_) {} : _onSearchChanged,
                 ),
+                const SizedBox(height: 12),
+
+                if (_searchResults.isNotEmpty || (_tagSearchController.text.isNotEmpty && !_isSearching))
+                  SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        if (_tagSearchController.text.isNotEmpty &&
+                            !_searchResults.any((t) => t['name'].toString().toLowerCase() == _tagSearchController.text.toLowerCase()))
+                          _buildSearchChip("Add '${_tagSearchController.text}'", theme, isDark, () => _addTag(_tagSearchController.text), isAction: true),
+
+                        ..._searchResults.map((tag) => _buildSearchChip(tag['name'], theme, isDark, () => _addTag(tag['name']))),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _selectedTags.map((tag) => _buildTagChip(tag, theme, isDark)).toList(),
+                ),
+
                 const SizedBox(height: 28),
                 ImagePickerCard(
                   bytes: _imageBytes,
                   contentType: _imageContentType,
-                  emptyTitle: 'Add post',
-                  emptySubtitle: 'Tap to upload a clear pet photo',
-                  onPicked: (bytes, contentType) {
-                    setState(() {
-                      _imageBytes = bytes;
-                      _imageContentType = contentType;
-                    });
-                  },
+                  emptyTitle: 'Add photo',
+                  onPicked: (bytes, contentType) => setState(() { _imageBytes = bytes; _imageContentType = contentType; }),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
+
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -393,6 +400,41 @@ class _ListingScreenState extends State<ListingScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchChip(String label, ThemeData theme, bool isDark, VoidCallback onTap, {bool isAction = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        label: Text(label),
+        onPressed: onTap,
+        backgroundColor: isAction ? theme.colorScheme.primaryContainer : (isDark ? Colors.white10 : Colors.black12),
+        labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      ),
+    );
+  }
+
+  Widget _buildTagChip(String tag, ThemeData theme, bool isDark) {
+    return InkWell(
+      onTap: () => _removeTag(tag),
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(tag, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimary)),
+            const SizedBox(width: 6),
+            Icon(Icons.close_rounded, size: 16, color: theme.colorScheme.onPrimary),
+          ],
         ),
       ),
     );
