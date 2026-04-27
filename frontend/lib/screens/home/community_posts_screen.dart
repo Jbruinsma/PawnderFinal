@@ -218,18 +218,13 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final postMaps = _posts.map((post) => post.toFeedMap()).toList();
 
-    String? imageUrl;
-    try {
-      imageUrl = (widget.community as dynamic).imageUrl;
-    } catch (_) {}
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              expandedHeight: 180,
+              expandedHeight: 200,
               pinned: true,
               backgroundColor: theme.scaffoldBackgroundColor,
               leading: Padding(
@@ -243,35 +238,27 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (imageUrl != null && imageUrl.isNotEmpty)
+                    if (widget.community.bannerUrl != null &&
+                        widget.community.bannerUrl!.isNotEmpty)
                       Image.network(
-                        imageUrl,
+                        widget.community.bannerUrl!,
                         fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildFallbackGradient(theme),
                       )
                     else
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              theme.colorScheme.primary.withValues(alpha: 0.6),
-                              theme.colorScheme.primary.withValues(alpha: 0.2),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _buildFallbackGradient(theme),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withValues(alpha: 0.3),
+                            Colors.black.withValues(alpha: 0.4),
                             Colors.transparent,
                             theme.scaffoldBackgroundColor,
                           ],
-                          stops: const [0.0, 0.6, 1.0],
+                          stops: const [0.0, 0.5, 1.0],
                         ),
                       ),
                     ),
@@ -411,6 +398,21 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
           padding: const EdgeInsets.all(16),
         ),
         icon: const Icon(Icons.add_rounded, size: 28),
+      ),
+    );
+  }
+
+  Widget _buildFallbackGradient(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primary.withValues(alpha: 0.15),
+            theme.colorScheme.primary.withValues(alpha: 0.05),
+          ],
+        ),
       ),
     );
   }
