@@ -36,6 +36,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
   final _authService = AuthService();
   final _communityService = CommunityService();
 
+  late Community _community;
   late List<CommunityPost> _posts;
   final Map<String, List<PostComment>> _commentsByPostId = {};
   Timer? _pollTimer;
@@ -48,15 +49,21 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
   @override
   void initState() {
     super.initState();
+    _community = widget.community;
     _posts = List<CommunityPost>.from(widget.posts);
     for (final post in _posts) {
       _commentsByPostId[post.id] = List<PostComment>.from(post.comments);
     }
     _loadCurrentUserId();
     _checkIfJoined();
+
+    // Fetch fresh community data immediately to sync post counts
+    // in case the user just returned from creating a post
+    _refreshPosts(isSilent: true);
+
     _pollTimer = Timer.periodic(
       const Duration(seconds: 15),
-      (_) => _refreshPosts(isSilent: true),
+          (_) => _refreshPosts(isSilent: true),
     );
   }
 
@@ -79,7 +86,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
       final myCommunities = await _communityService.getMyNeighborhoods();
       if (!mounted) return;
       setState(() {
-        _isJoined = myCommunities.any((c) => c.id == widget.community.id);
+        _isJoined = myCommunities.any((c) => c.id == _community.id);
       });
     } catch (_) {
       if (mounted) setState(() => _isJoined = false);
@@ -91,14 +98,14 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
     setState(() => _isJoining = true);
 
     try {
-      await _communityService.joinNeighborhood(communityId: widget.community.id);
+      await _communityService.joinNeighborhood(communityId: _community.id);
       if (!mounted) return;
       setState(() {
         _isJoined = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Welcome to ${widget.community.name}!'),
+          content: Text('Welcome to ${_community.name}!'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -120,17 +127,20 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
       setState(() => _isRefreshing = true);
     }
     try {
-      final fresh = await _postService.getCommunityPosts(
-        communityId: widget.community.id,
+      // Fetch both fresh posts AND the community data to ensure the postCount is accurate
+      final freshCommunity = await _communityService.getCommunityById(communityId: _community.id);
+      final freshPosts = await _postService.getCommunityPosts(
+        communityId: _community.id,
         limit: 50,
       );
       if (!mounted) return;
       setState(() {
-        _posts = fresh;
+        _community = freshCommunity;
+        _posts = freshPosts;
         for (final post in _posts) {
           _commentsByPostId.putIfAbsent(
             post.id,
-            () => List<PostComment>.from(post.comments),
+                () => List<PostComment>.from(post.comments),
           );
         }
       });
@@ -185,6 +195,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
         _posts = _posts.where((p) => p.id != post.id).toList();
       });
       widget.onPostDelete?.call(post.id);
+      _refreshPosts(isSilent: true); // Update the overall community post count
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -267,34 +278,34 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                     padding: const EdgeInsets.all(8.0),
                     child: _isRefreshing
                         ? Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.6)
-                                  : Colors.white.withValues(alpha: 0.75),
-                              shape: BoxShape.circle,
-                            ),
-                            padding: const EdgeInsets.all(12),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.colorScheme.primary,
-                            ),
-                          )
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.6)
+                            : Colors.white.withValues(alpha: 0.75),
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.primary,
+                      ),
+                    )
                         : _GlassIconButton(
-                            icon: Icons.refresh_rounded,
-                            onTap: () => _refreshPosts(isSilent: false),
-                          ),
+                      icon: Icons.refresh_rounded,
+                      onTap: () => _refreshPosts(isSilent: false),
+                    ),
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (widget.community.bannerUrl != null &&
-                          widget.community.bannerUrl!.isNotEmpty)
+                      if (_community.bannerUrl != null &&
+                          _community.bannerUrl!.isNotEmpty)
                         Image.network(
-                          widget.community.bannerUrl!,
+                          _community.bannerUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               _buildFallbackGradient(theme),
@@ -326,7 +337,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.community.name,
+                        _community.name,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
@@ -336,9 +347,9 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.community.description.isEmpty
+                        _community.description.isEmpty
                             ? 'Neighborhood pet alerts and local community posts.'
-                            : widget.community.description,
+                            : _community.description,
                         style: TextStyle(
                           fontSize: 15,
                           height: 1.45,
@@ -354,11 +365,11 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                         children: [
                           _StatPill(
                             icon: Icons.article_outlined,
-                            label: '${widget.community.postCount} posts',
+                            label: '${_community.postCount} posts',
                           ),
                           _StatPill(
                             icon: Icons.group_outlined,
-                            label: '${widget.community.memberCount} members',
+                            label: '${_community.memberCount} members',
                           ),
                           if (_isJoined == false)
                             ClipRRect(
@@ -375,13 +386,13 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                                   ),
                                   icon: _isJoining
                                       ? SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: theme.colorScheme.primary,
-                                          ),
-                                        )
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  )
                                       : const Icon(Icons.add_rounded, size: 18),
                                   label: const Text(
                                     'Join',
@@ -403,7 +414,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
                 pinned: true,
                 delegate: _StickyHeaderDelegate(
                   height: 54,
-                  postCount: widget.community.postCount,
+                  postCount: _community.postCount,
                 ),
               ),
             ];
@@ -529,10 +540,10 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
+      BuildContext context,
+      double shrinkOffset,
+      bool overlapsContent,
+      ) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

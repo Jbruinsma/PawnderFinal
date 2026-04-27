@@ -16,15 +16,15 @@ Widget buildCommunityPostsFeed({
   final visiblePosts = query.isEmpty
       ? posts
       : posts.where((post) {
-          final title = (post['title'] ?? '').toLowerCase();
-          final description = (post['description'] ?? '').toLowerCase();
-          final author = (post['author'] ?? '').toLowerCase();
-          final location = (post['location'] ?? '').toLowerCase();
-          return title.contains(query) ||
-              description.contains(query) ||
-              author.contains(query) ||
-              location.contains(query);
-        }).toList();
+    final title = (post['title'] ?? '').toLowerCase();
+    final description = (post['description'] ?? '').toLowerCase();
+    final author = (post['author'] ?? '').toLowerCase();
+    final location = (post['location'] ?? '').toLowerCase();
+    return title.contains(query) ||
+        description.contains(query) ||
+        author.contains(query) ||
+        location.contains(query);
+  }).toList();
 
   if (visiblePosts.isEmpty) {
     return Builder(
@@ -131,19 +131,9 @@ class _StackedPostCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              (post['section'] ?? '') == 'found'
-                                  ? 'Found nearby'
-                                  : 'Missing pet',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
                             const SizedBox(height: 6),
                             Text(
-                              post['title'] ?? 'Missing pet post',
+                              post['title'] ?? 'Untitled',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -202,16 +192,14 @@ class _StackedPostCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       _StatusBadge(
-                        label: (post['section'] ?? '') == 'found'
-                            ? 'Found'
-                            : 'Lost',
+                        label: post['postType'] ?? 'Post',
                       ),
                       ...tags.take(3).map((tag) => _TagChip(tag: tag)),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Posted ${post['posted'] ?? 'March 10th, 2026'}',
+                    'Posted ${post['posted'] ?? 'Recently'}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
