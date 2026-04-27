@@ -67,7 +67,10 @@ def create_post(
     for name in new_tag_names:
         try:
             with session.begin_nested():
-                new_tag = Tag(name=name)
+                new_tag = Tag(
+                    name= name,
+                    category= "USER_CREATED"
+                )
                 session.add(new_tag)
                 session.flush()
                 final_tags.append(new_tag)
