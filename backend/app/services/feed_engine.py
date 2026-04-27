@@ -15,14 +15,20 @@ def generate_algorithmic_feed(
     intersects = func.ST_Intersects(Community.geofence_boundary, user_point)
     comm_distance = func.ST_Distance(Community.geofence_boundary, user_point)
 
-    member_count = select(func.count(user_communities.c.user_id)).where(
+    member_count_subq = select(func.count(user_communities.c.user_id)).where(
         user_communities.c.community_id == Community.id
+    ).correlate(Community).scalar_subquery()
+
+    post_count_subq = select(func.count(Post.id)).where(
+        Post.community_id == Community.id
     ).correlate(Community).scalar_subquery()
 
     communities_stmt = (
         select(
             Community,
-            user_communities.c.user_id.isnot(None).label("is_member")
+            user_communities.c.user_id.isnot(None).label("is_member"),
+            func.coalesce(member_count_subq, 0).label("member_count"),
+            func.coalesce(post_count_subq, 0).label("post_count")
         )
         .outerjoin(
             user_communities,
@@ -34,24 +40,12 @@ def generate_algorithmic_feed(
         .order_by(
             desc(intersects),
             comm_distance,
-            desc(func.coalesce(member_count, 0))
+            desc(func.coalesce(member_count_subq, 0))
         )
         .limit(10)
         .options(defer(Community.geofence_boundary))
     )
-
-    communities_results = session.execute(communities_stmt).all()
-
-    communities = [
-        {
-            "id": str(row.Community.id),
-            "name": str(row.Community.name),
-            "description": str(row.Community.description),
-            "is_member": bool(row.is_member)
-        }
-        for row in communities_results
-    ]
-
+    communities = session.execute(communities_stmt).all()
     like_count = select(func.count(PostLikes.id)).where(
         PostLikes.post_id == Post.id
     ).correlate(Post).scalar_subquery()
