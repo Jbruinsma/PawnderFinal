@@ -47,10 +47,10 @@ class UploadService {
 
     await _uploadDio.put<void>(
       uploadUrl,
-      data: Stream.fromIterable([bytes]),
+      data: bytes,
       options: Options(
+        contentType: contentType,
         headers: {
-          Headers.contentTypeHeader: contentType,
           Headers.contentLengthHeader: bytes.length,
         },
       ),

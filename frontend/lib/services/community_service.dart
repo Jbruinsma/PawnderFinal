@@ -1,6 +1,32 @@
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/services/api_client.dart';
 
+class CreateCommunityRequest {
+  const CreateCommunityRequest({
+    required this.name,
+    required this.description,
+    required this.latitude,
+    required this.longitude,
+    this.imageUrl,
+  });
+
+  final String name;
+  final String description;
+  final double latitude;
+  final double longitude;
+  final String? imageUrl;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      'latitude': latitude,
+      'longitude': longitude,
+      if (imageUrl != null) 'image_url': imageUrl,
+    };
+  }
+}
+
 class CommunityService {
   CommunityService({ApiClient? apiClient})
     : _apiClient = apiClient ?? ApiClient();
@@ -52,22 +78,10 @@ class CommunityService {
     await _apiClient.post<void>('/community/neighborhoods/$communityId/join');
   }
 
-  Future<Community> createNeighborhood({
-    required String name,
-    required String description,
-    required double latitude,
-    required double longitude,
-    String? image_url,
-  }) async {
+  Future<Community> createNeighborhood(CreateCommunityRequest request) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/community/neighborhoods',
-      data: {
-        'name': name,
-        'description': description,
-        'latitude': latitude,
-        'longitude': longitude,
-        if (image_url != null) 'image_url': image_url,
-      },
+      data: request.toJson(),
     );
 
     final communityJson =

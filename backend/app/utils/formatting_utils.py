@@ -35,6 +35,7 @@ def format_post_with_stats(row) -> CommunityPost:
 def format_neighborhood_with_stats(row) -> Neighborhood:
     return Neighborhood(
         id= str(row.Community.id),
+        image_url= str(row.Community.image_url) or None,
         name= str(row.Community.name),
         description= str(row.Community.description or ""),
         post_count= int(row.post_count),

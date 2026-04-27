@@ -65,7 +65,9 @@ async def retrieve_initial_feed(
     }
 
     return {
-        "communities": communities,
+        "communities": [
+            format_neighborhood_with_stats(row) for row in communities
+        ],
         "applicable_tags": list(applicable_tags),
         "posts": [
             format_post_with_stats(row) for row in raw_posts
@@ -129,7 +131,8 @@ def create_neighborhood(
         geofence_boundary=from_shape(
             _build_square_boundary(payload.latitude, payload.longitude),
             srid=4326,
-        )
+        ),
+        image_url= payload.image_url
     )
 
     session.add(community)
@@ -143,11 +146,35 @@ def create_neighborhood(
             id= str(community.id),
             name= community.name,
             description= community.description or "",
+            image_url= community.image_url,
             post_count= 0,
             member_count= 1,
             is_member= True
         )
     )
+
+
+@router.get(
+    path= "/neighborhoods/{community_id}"
+)
+async def retrieve_community(
+        community_id: UUID,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    base_stmt = (
+        select(Community)
+        .where(Community.id == community_id)
+    )
+
+    stmt = get_community_stats_query(current_user.id, base_stmt)
+    results = session.execute(stmt).first()
+
+    if not results:
+        raise HTTPException(status_code=404, detail="Community not found")
+
+    return format_neighborhood_with_stats(results)
+
 
 @router.post("/neighborhoods/{community_id}/join", summary="Join a neighborhood")
 def join_neighborhood(
@@ -301,8 +328,8 @@ def create_post(
         raise HTTPException(status_code=404, detail="Community not found")
 
     new_post: Post = db_create_post(
-        session=session,
-        payload=payload
+        session= session,
+        payload= payload
     )
 
     return {

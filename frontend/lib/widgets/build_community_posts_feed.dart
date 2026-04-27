@@ -85,6 +85,7 @@ class _StackedPostCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final youLiked = post['youLiked'] == 'true';
+    final hasImage = (post['image'] ?? '').trim().isNotEmpty;
     final tags = (post['tags'] ?? '')
         .split('|')
         .where((tag) => tag.trim().isNotEmpty)
@@ -102,108 +103,113 @@ class _StackedPostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
+            if (hasImage)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 1.55,
+                  child: PetImage(
+                    image: post['image'],
+                    height: double.infinity,
+                    width: double.infinity,
+                    preserveSubject: true,
+                    seed: post['id'] ?? post['title'] ?? '',
+                  ),
+                ),
               ),
-              child: Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1.55,
-                    child: PetImage(
-                      image: post['image'],
-                      height: double.infinity,
-                      width: double.infinity,
-                      preserveSubject: true,
-                      seed: post['id'] ?? post['title'] ?? '',
-                    ),
-                  ),
-                  Positioned(
-                    left: 12,
-                    top: 12,
-                    child: _StatusBadge(
-                      label: (post['section'] ?? '') == 'found'
-                          ? 'Found'
-                          : 'Lost',
-                    ),
-                  ),
-                  Positioned(
-                    right: 12,
-                    top: 12,
-                    child: Row(
-                      children: [
-                        if (onDeleteTap != null) ...[
-                          _RoundCardAction(
-                            icon: Icons.delete_outline_rounded,
-                            iconColor: Colors.redAccent,
-                            onTap: onDeleteTap,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        _RoundCardAction(
-                          icon: youLiked
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          iconColor: youLiked
-                              ? Colors.redAccent
-                              : theme.colorScheme.onSurface,
-                          onTap: onLikeTap,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    (post['section'] ?? '') == 'found'
-                        ? 'Found nearby'
-                        : 'Missing pet',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    post['title'] ?? 'Missing pet post',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 19,
-                      height: 1.15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    post['description'] ?? '',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 14,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              (post['section'] ?? '') == 'found'
+                                  ? 'Found nearby'
+                                  : 'Missing pet',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              post['title'] ?? 'Missing pet post',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 19,
+                                height: 1.15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (onDeleteTap != null) ...[
+                            _RoundCardAction(
+                              icon: Icons.delete_outline_rounded,
+                              iconColor: Colors.redAccent,
+                              onTap: onDeleteTap,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          _RoundCardAction(
+                            icon: youLiked
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            iconColor: youLiked
+                                ? Colors.redAccent
+                                : theme.colorScheme.onSurface,
+                            onTap: onLikeTap,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
+                  if ((post['description'] ?? '').trim().isNotEmpty) ...[
+                    Text(
+                      post['description'] ?? '',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 14,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: tags
-                        .take(3)
-                        .map((tag) => _TagChip(tag: tag))
-                        .toList(),
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _StatusBadge(
+                        label: (post['section'] ?? '') == 'found'
+                            ? 'Found'
+                            : 'Lost',
+                      ),
+                      ...tags.take(3).map((tag) => _TagChip(tag: tag)),
+                    ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Text(
                     'Posted ${post['posted'] ?? 'March 10th, 2026'}',
                     maxLines: 1,
@@ -288,8 +294,8 @@ class _StatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.black.withValues(alpha: 0.78)
-            : Colors.white.withValues(alpha: 0.92),
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(7),
       ),
       child: Text(
@@ -322,12 +328,12 @@ class _RoundCardAction extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Ink(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.72)
-                : Colors.white.withValues(alpha: 0.94),
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -352,7 +358,7 @@ class _TagChip extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkElevated : const Color(0xFFEDEFF1),
         borderRadius: BorderRadius.circular(999),

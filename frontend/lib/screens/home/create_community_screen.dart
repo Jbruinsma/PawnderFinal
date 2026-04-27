@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
@@ -47,8 +48,12 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
 
-    if (name.isEmpty || description.isEmpty) {
-      _showMessage('Community name and description are required.');
+    if (name.isEmpty || description.isEmpty || _imageBytes == null) {
+      String errorMessage = 'Community name and description are required.';
+      if (_imageBytes == null) {
+        errorMessage = 'A community banner image is required.';
+      }
+      _showMessage(errorMessage);
       return;
     }
 
@@ -79,11 +84,13 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
       }
 
       final community = await _communityService.createNeighborhood(
-        name: name,
-        description: description,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        image_url: bannerImageUrl,
+        CreateCommunityRequest(
+          name: name,
+          description: description,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          imageUrl: bannerImageUrl,
+        ),
       );
 
       if (!mounted) {
@@ -91,7 +98,17 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
       }
 
       setState(() => _createdCommunity = community);
-    } catch (error) {
+    } catch (error, stack) {
+      // TEMP DIAGNOSTICS — remove once fixed
+      debugPrint('CREATE COMMUNITY ERROR type=${error.runtimeType}');
+      debugPrint('CREATE COMMUNITY ERROR toString=$error');
+      if (error is DioException) {
+        debugPrint('  status=${error.response?.statusCode}');
+        debugPrint('  data=${error.response?.data}');
+        debugPrint('  dioType=${error.type}');
+      }
+      debugPrint('  stack=$stack');
+
       if (!mounted) {
         return;
       }
@@ -206,7 +223,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                   bytes: _imageBytes,
                   contentType: _imageContentType,
                   emptyTitle: 'Add banner',
-                  emptySubtitle: 'Tap to upload a community photo',
+                  emptySubtitle: 'Tap to upload a community photo (Required)',
                   previewHeight: 180,
                   onPicked: (bytes, contentType) {
                     setState(() {

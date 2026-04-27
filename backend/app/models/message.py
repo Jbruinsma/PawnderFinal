@@ -1,11 +1,8 @@
 import uuid
-
 from sqlalchemy import Column, Text, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-
 from app.core.database import Base
-
 
 class Message(Base):
     __tablename__ = "messages"
