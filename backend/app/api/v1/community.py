@@ -144,6 +144,7 @@ def create_neighborhood(
             id= str(community.id),
             name= community.name,
             description= community.description or "",
+            image_url= community.image_url,
             post_count= 0,
             member_count= 1,
             is_member= True

@@ -83,11 +83,13 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
       }
 
       final community = await _communityService.createNeighborhood(
-        name: name,
-        description: description,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        image_url: bannerImageUrl,
+        CreateCommunityRequest(
+          name: name,
+          description: description,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          imageUrl: bannerImageUrl,
+        ),
       );
 
       if (!mounted) {

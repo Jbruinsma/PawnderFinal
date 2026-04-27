@@ -291,7 +291,7 @@ class CreatePostRequest {
       'post_type': postType,
       'title': title,
       'description': description,
-      'image_url': imageUrl,
+      if (imageUrl != null) 'image_url': imageUrl,
       'location': location.toJson(),
       'tags': tags,
     };
