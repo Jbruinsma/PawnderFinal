@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required by the geolocator plugin. ACCESS_FINE_LOCATION provides
+         precise GPS; ACCESS_COARSE_LOCATION is the network-based fallback the
+         plugin requires when fine location is unavailable. INTERNET is added
+         automatically by Flutter in debug builds, but is declared here for
+         release-build correctness. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="pawnder_app"
         android:name="${applicationName}"
