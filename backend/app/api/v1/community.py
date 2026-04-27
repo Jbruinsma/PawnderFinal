@@ -65,7 +65,9 @@ async def retrieve_initial_feed(
     }
 
     return {
-        "communities": communities,
+        "communities": [
+            format_neighborhood_with_stats(row) for row in communities
+        ],
         "applicable_tags": list(applicable_tags),
         "posts": [
             format_post_with_stats(row) for row in raw_posts
