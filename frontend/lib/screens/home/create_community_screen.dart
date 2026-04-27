@@ -47,8 +47,12 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
 
-    if (name.isEmpty || description.isEmpty) {
-      _showMessage('Community name and description are required.');
+    if (name.isEmpty || description.isEmpty || _imageBytes == null) {
+      String errorMessage = 'Community name and description are required.';
+      if (_imageBytes == null) {
+        errorMessage = 'A community banner image is required.';
+      }
+      _showMessage(errorMessage);
       return;
     }
 
@@ -206,7 +210,7 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
                   bytes: _imageBytes,
                   contentType: _imageContentType,
                   emptyTitle: 'Add banner',
-                  emptySubtitle: 'Tap to upload a community photo',
+                  emptySubtitle: 'Tap to upload a community photo (Required)',
                   previewHeight: 180,
                   onPicked: (bytes, contentType) {
                     setState(() {

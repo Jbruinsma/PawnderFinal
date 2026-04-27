@@ -129,7 +129,8 @@ def create_neighborhood(
         geofence_boundary=from_shape(
             _build_square_boundary(payload.latitude, payload.longitude),
             srid=4326,
-        )
+        ),
+        image_url= payload.image_url
     )
 
     session.add(community)
@@ -324,8 +325,8 @@ def create_post(
         raise HTTPException(status_code=404, detail="Community not found")
 
     new_post: Post = db_create_post(
-        session=session,
-        payload=payload
+        session= session,
+        payload= payload
     )
 
     return {
