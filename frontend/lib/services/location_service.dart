@@ -1,12 +1,12 @@
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/services/auth_service.dart';
 
 class LocationService {
   LocationService({AuthService? authService, FlutterSecureStorage? storage})
-    : _authService = authService ?? AuthService(),
-      _storage = storage ?? const FlutterSecureStorage();
+      : _authService = authService ?? AuthService(),
+        _storage = storage ?? const FlutterSecureStorage();
 
   final AuthService _authService;
   final FlutterSecureStorage _storage;
@@ -28,14 +28,19 @@ class LocationService {
   }
 
   Future<PostLocation?> requestAndSaveCurrentLocation() async {
-    final isServiceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!isServiceEnabled) {
-      return null;
-    }
+    final LocationPermission permission;
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return null;
+      }
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      var current = await Geolocator.checkPermission();
+      if (current == LocationPermission.denied) {
+        current = await Geolocator.requestPermission();
+      }
+      permission = current;
+    } catch (_) {
+      return null;
     }
 
     if (permission == LocationPermission.denied ||
@@ -43,16 +48,39 @@ class LocationService {
       return null;
     }
 
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    final position = await _resolvePosition();
+    if (position == null) {
+      return null;
+    }
 
     final location = PostLocation(
       latitude: position.latitude,
       longitude: position.longitude,
     );
 
-    await _authService.updateLocation(location);
+    try {
+      await _authService.updateLocation(location);
+    } catch (_) {
+    }
+
     return location;
+  }
+
+  Future<Position?> _resolvePosition() async {
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+    }
+
+    try {
+      return await Geolocator.getLastKnownPosition();
+    } catch (_) {
+      return null;
+    }
   }
 }

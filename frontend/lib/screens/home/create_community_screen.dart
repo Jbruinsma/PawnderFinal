@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pawnder_app/models/community.dart';
 import 'package:pawnder_app/screens/home/listing_screen.dart';
@@ -97,7 +98,17 @@ class _CreateCommunityScreenState extends State<CreateCommunityScreen> {
       }
 
       setState(() => _createdCommunity = community);
-    } catch (error) {
+    } catch (error, stack) {
+      // TEMP DIAGNOSTICS — remove once fixed
+      debugPrint('CREATE COMMUNITY ERROR type=${error.runtimeType}');
+      debugPrint('CREATE COMMUNITY ERROR toString=$error');
+      if (error is DioException) {
+        debugPrint('  status=${error.response?.statusCode}');
+        debugPrint('  data=${error.response?.data}');
+        debugPrint('  dioType=${error.type}');
+      }
+      debugPrint('  stack=$stack');
+
       if (!mounted) {
         return;
       }
