@@ -136,106 +136,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     widget.onCreateCommunityTap();
   }
 
-  void _showAllNeighborhoods() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        final theme = Theme.of(context);
-        final isDark = theme.brightness == Brightness.dark;
-        final visibleCommunities = _hasActiveQuery
-            ? _searchResults
-            : widget.communities;
-
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-            child: Container(
-              color: isDark
-                  ? Colors.black.withValues(alpha: 0.65)
-                  : Colors.white.withValues(alpha: 0.85),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: theme.dividerColor,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'All Communities',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (widget.isLoading && visibleCommunities.isEmpty)
-                        const SizedBox(
-                          height: 260,
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else if (visibleCommunities.isEmpty)
-                        SizedBox(
-                          height: 260,
-                          child: Center(
-                            child: Text(
-                              _hasActiveQuery
-                                  ? 'No communities match "${_searchQuery.trim()}"'
-                                  : 'No neighborhoods found',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        Flexible(
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: visibleCommunities.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final community = visibleCommunities[index];
-                              return CommunityCard(
-                                community: community,
-                                isSelected:
-                                    community.name ==
-                                    widget.selectedCommunityName,
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  widget.onCommunityTap(community);
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -259,25 +159,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
           const SizedBox(height: 16),
           Expanded(child: _buildBody()),
-          if (!_hasActiveQuery && widget.communities.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: _showAllNeighborhoods,
-                child: Text(
-                  'Explore More\nCommunities',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w700,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ),
-          ],
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 12),
             child: Align(
