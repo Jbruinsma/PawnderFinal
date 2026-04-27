@@ -62,6 +62,22 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
     }
   }
 
+  void _handlePostUpdate(Map<String, String>? updatedPost) {
+    if (updatedPost == null || !mounted) return;
+
+    setState(() {
+      final postId = updatedPost['id'];
+      final index = _posts.indexWhere((p) => p.id == postId);
+      if (index != -1) {
+        _posts[index] = _posts[index].copyWith(
+          likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
+          commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
+          youLiked: updatedPost['youLiked'] == 'true',
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -139,11 +155,12 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
                       )
                     : RefreshIndicator(
                         onRefresh: _load,
+                        color: theme.colorScheme.primary,
                         child: buildCommunityPostsFeed(
                           posts: postMaps,
                           searchQuery: _searchQuery,
-                          onPostTap: (postMap) {
-                            Navigator.push(
+                          onPostTap: (postMap) async {
+                            final result = await Navigator.push<Map<String, String>>(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => UnifiedPostDetailScreen(
@@ -151,6 +168,18 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
                                 ),
                               ),
                             );
+                            _handlePostUpdate(result);
+                          },
+                          onCommentTap: (postMap) async {
+                            final result = await Navigator.push<Map<String, String>>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => UnifiedPostDetailScreen(
+                                  post: postMap,
+                                ),
+                              ),
+                            );
+                            _handlePostUpdate(result);
                           },
                         ),
                       ),

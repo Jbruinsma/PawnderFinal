@@ -442,6 +442,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _handlePostUpdate(Map<String, String>? updatedPost) async {
+    if (updatedPost == null || !mounted) return;
+
+    setState(() {
+      final postId = updatedPost['id'];
+
+      final recIndex = _recommendedPosts.indexWhere((p) => p.id == postId);
+      if (recIndex != -1) {
+        _recommendedPosts[recIndex] = _recommendedPosts[recIndex].copyWith(
+          likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
+          commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
+          youLiked: updatedPost['youLiked'] == 'true',
+        );
+        _nearbyPets = _recommendedPosts.map((post) => post.toPetMap()).toList();
+      }
+
+      final searchPosts = List<CommunityPost>.from(_searchResults.posts);
+      final searchIndex = searchPosts.indexWhere((p) => p.id == postId);
+      if (searchIndex != -1) {
+        searchPosts[searchIndex] = searchPosts[searchIndex].copyWith(
+          likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
+          commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
+          youLiked: updatedPost['youLiked'] == 'true',
+        );
+        _searchResults = _searchResults.copyWith(posts: searchPosts);
+      }
+    });
+  }
+
   Future<void> _handleCommunityTap(Community community) async {
     final selectedCommunityId = community.id;
     if (!mounted) return;
@@ -636,8 +665,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildAdoptionView(BuildContext context) {
+    final theme = Theme.of(context);
     final isResultsMode = _searchQuery.trim().isNotEmpty;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
     final headerTextColor = isDark
         ? const Color(0xFFE5E4E2)
         : AppColors.seaBlue;
@@ -726,51 +756,60 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 12),
               ],
               Expanded(
-                child: isResultsMode
-                    ? _buildSearchResultsView(headerTextColor)
-                    : (_isFetchingFeed
-                        ? Center(
-                            child: CircularProgressIndicator(
-                              color: Theme.of(context).colorScheme.primary,
-                              strokeWidth: 3,
-                            ),
-                          )
-                        : (recommendedPostMaps.isNotEmpty
-                            ? buildCommunityPostsFeed(
-                                posts: recommendedPostMaps,
-                                searchQuery: _searchQuery,
-                                currentUserId: _currentUser?.id,
-                                onPostTap: (postMap) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          UnifiedPostDetailScreen(post: postMap),
-                                    ),
-                                  );
-                                },
-                                onCommentTap: (postMap) async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          UnifiedPostDetailScreen(post: postMap),
-                                    ),
-                                  );
-                                },
-                              )
-                            : buildPetList(
-                                pets: _visiblePets,
-                                selectedCategory: _selectedCategory,
-                                searchQuery: _searchQuery,
-                                onPetTap: (pet) => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        UnifiedPostDetailScreen(post: pet),
-                                  ),
-                                ),
-                              ))),
+                child: RefreshIndicator(
+                  color: theme.colorScheme.primary,
+                  onRefresh: _loadCommunityData,
+                  child: isResultsMode
+                      ? _buildSearchResultsView(headerTextColor)
+                      : (_isFetchingFeed
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: Theme.of(context).colorScheme.primary,
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : (recommendedPostMaps.isNotEmpty
+                              ? buildCommunityPostsFeed(
+                                  posts: recommendedPostMaps,
+                                  searchQuery: _searchQuery,
+                                  currentUserId: _currentUser?.id,
+                                  onPostTap: (postMap) async {
+                                    final result = await Navigator.push<Map<String, String>>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            UnifiedPostDetailScreen(post: postMap),
+                                      ),
+                                    );
+                                    _handlePostUpdate(result);
+                                  },
+                                  onCommentTap: (postMap) async {
+                                    final result = await Navigator.push<Map<String, String>>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            UnifiedPostDetailScreen(post: postMap),
+                                      ),
+                                    );
+                                    _handlePostUpdate(result);
+                                  },
+                                )
+                              : buildPetList(
+                                  pets: _visiblePets,
+                                  selectedCategory: _selectedCategory,
+                                  searchQuery: _searchQuery,
+                                  onPetTap: (pet) async {
+                                    final result = await Navigator.push<Map<String, String>>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            UnifiedPostDetailScreen(post: pet),
+                                      ),
+                                    );
+                                    _handlePostUpdate(result);
+                                  },
+                                ))),
+                ),
               ),
             ],
           ),
@@ -814,6 +853,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 92),
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         if (communities.isNotEmpty) ...[
           _buildSectionHeader(
@@ -848,13 +888,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               _SearchPostCard(
                 post: post,
                 isAuthor: isAuthor,
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  final result = await Navigator.push<Map<String, String>>(
                     context,
                     MaterialPageRoute(
                       builder: (_) => UnifiedPostDetailScreen(post: post),
                     ),
                   );
+                  _handlePostUpdate(result);
                 },
               ),
               const SizedBox(height: 14),

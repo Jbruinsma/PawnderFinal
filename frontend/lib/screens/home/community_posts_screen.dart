@@ -43,6 +43,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
 
   bool? _isJoined;
   bool _isJoining = false;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -54,8 +55,8 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
     _loadCurrentUserId();
     _checkIfJoined();
     _pollTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _refreshPosts(),
+      const Duration(seconds: 15),
+      (_) => _refreshPosts(isSilent: true),
     );
   }
 
@@ -114,7 +115,10 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
     }
   }
 
-  Future<void> _refreshPosts() async {
+  Future<void> _refreshPosts({bool isSilent = false}) async {
+    if (!isSilent) {
+      setState(() => _isRefreshing = true);
+    }
     try {
       final fresh = await _postService.getCommunityPosts(
         communityId: widget.community.id,
@@ -130,7 +134,28 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
           );
         }
       });
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (mounted && !isSilent) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
+  void _handlePostUpdate(Map<String, String>? updatedPost) {
+    if (updatedPost == null || !mounted) return;
+
+    setState(() {
+      final postId = updatedPost['id'];
+      final index = _posts.indexWhere((p) => p.id == postId);
+      if (index != -1) {
+        _posts[index] = _posts[index].copyWith(
+          likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
+          commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
+          youLiked: updatedPost['youLiked'] == 'true',
+        );
+      }
+    });
   }
 
   Future<void> _confirmDeletePost(CommunityPost post) async {
@@ -173,42 +198,41 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
 
   Future<void> _togglePostLike(Map<String, String> postMap) async {
     final postId = postMap['id'];
-    if (postId == null) {
-      return;
-    }
+    if (postId == null) return;
 
     final index = _posts.indexWhere((item) => item.id == postId);
-    if (index == -1) {
-      return;
-    }
+    if (index == -1) return;
 
     final post = _posts[index];
     final shouldLike = !post.youLiked;
+
+    setState(() {
+      _posts[index] = post.copyWith(
+        likeCount: post.likeCount + (shouldLike ? 1 : -1),
+        youLiked: shouldLike,
+      );
+    });
 
     try {
       final newLikeCount = await _postService.setPostLike(
         postId: postId,
         shouldLike: shouldLike,
       );
-      if (!mounted) {
-        return;
+      if (!mounted) return;
+      if (newLikeCount >= 0) {
+        setState(() {
+          _posts[index] = _posts[index].copyWith(likeCount: newLikeCount);
+        });
       }
-      setState(() {
-        _posts[index] = post.copyWith(
-          likeCount: newLikeCount,
-          youLiked: shouldLike,
-        );
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _posts[index] = post.copyWith(
+            likeCount: post.likeCount,
+            youLiked: post.youLiked,
+          );
+        });
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_apiClient.messageForError(error)),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
@@ -220,171 +244,203 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: 200,
-              pinned: true,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              leading: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: _GlassIconButton(
-                  icon: Icons.arrow_back_ios_new_rounded,
-                  onTap: () => Navigator.pop(context),
+      body: RefreshIndicator(
+        onRefresh: () => _refreshPosts(isSilent: false),
+        color: theme.colorScheme.primary,
+        child: NestedScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                expandedHeight: 200,
+                pinned: true,
+                backgroundColor: theme.scaffoldBackgroundColor,
+                leading: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: _GlassIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: _isRefreshing
+                        ? Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.6)
+                                  : Colors.white.withValues(alpha: 0.75),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.primary,
+                            ),
+                          )
+                        : _GlassIconButton(
+                            icon: Icons.refresh_rounded,
+                            onTap: () => _refreshPosts(isSilent: false),
+                          ),
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (widget.community.bannerUrl != null &&
+                          widget.community.bannerUrl!.isNotEmpty)
+                        Image.network(
+                          widget.community.bannerUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildFallbackGradient(theme),
+                        )
+                      else
+                        _buildFallbackGradient(theme),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.4),
+                              Colors.transparent,
+                              theme.scaffoldBackgroundColor,
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (widget.community.bannerUrl != null &&
-                        widget.community.bannerUrl!.isNotEmpty)
-                      Image.network(
-                        widget.community.bannerUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildFallbackGradient(theme),
-                      )
-                    else
-                      _buildFallbackGradient(theme),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.4),
-                            Colors.transparent,
-                            theme.scaffoldBackgroundColor,
-                          ],
-                          stops: const [0.0, 0.5, 1.0],
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.community.name,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.community.name,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: theme.colorScheme.onSurface,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.community.description.isEmpty
-                          ? 'Neighborhood pet alerts and local community posts.'
-                          : widget.community.description,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.45,
-                        fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        _StatPill(
-                          icon: Icons.article_outlined,
-                          label: '${widget.community.postCount} posts',
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.community.description.isEmpty
+                            ? 'Neighborhood pet alerts and local community posts.'
+                            : widget.community.description,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.45,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                        _StatPill(
-                          icon: Icons.group_outlined,
-                          label: '${widget.community.memberCount} members',
-                        ),
-                        if (_isJoined == false)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                              child: FilledButton.tonalIcon(
-                                onPressed: _isJoining ? null : _joinCommunity,
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                                  foregroundColor: theme.colorScheme.primary,
-                                  minimumSize: const Size(0, 36),
-                                ),
-                                icon: _isJoining
-                                    ? SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: theme.colorScheme.primary,
-                                        ),
-                                      )
-                                    : const Icon(Icons.add_rounded, size: 18),
-                                label: const Text(
-                                  'Join',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
+                      ),
+                      const SizedBox(height: 18),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _StatPill(
+                            icon: Icons.article_outlined,
+                            label: '${widget.community.postCount} posts',
+                          ),
+                          _StatPill(
+                            icon: Icons.group_outlined,
+                            label: '${widget.community.memberCount} members',
+                          ),
+                          if (_isJoined == false)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                child: FilledButton.tonalIcon(
+                                  onPressed: _isJoining ? null : _joinCommunity,
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                                    foregroundColor: theme.colorScheme.primary,
+                                    minimumSize: const Size(0, 36),
+                                  ),
+                                  icon: _isJoining
+                                      ? SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                        )
+                                      : const Icon(Icons.add_rounded, size: 18),
+                                  label: const Text(
+                                    'Join',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _StickyHeaderDelegate(
-                height: 54,
-                postCount: widget.community.postCount,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyHeaderDelegate(
+                  height: 54,
+                  postCount: widget.community.postCount,
+                ),
               ),
+            ];
+          },
+          body: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: buildCommunityPostsFeed(
+              posts: postMaps,
+              searchQuery: '',
+              currentUserId: _currentUserId,
+              onPostTap: (postMap) async {
+                final result = await Navigator.push<Map<String, String>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                  ),
+                );
+                _handlePostUpdate(result);
+              },
+              onCommentTap: (postMap) async {
+                final result = await Navigator.push<Map<String, String>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                  ),
+                );
+                _handlePostUpdate(result);
+              },
+              onLikeTap: _togglePostLike,
+              onDeleteTap: (postMap) async {
+                final postId = postMap['id'];
+                if (postId == null) return;
+                final index = _posts.indexWhere((item) => item.id == postId);
+                if (index == -1) return;
+                await _confirmDeletePost(_posts[index]);
+              },
             ),
-          ];
-        },
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: buildCommunityPostsFeed(
-            posts: postMaps,
-            searchQuery: '',
-            currentUserId: _currentUserId,
-            onPostTap: (postMap) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => UnifiedPostDetailScreen(post: postMap),
-                ),
-              );
-            },
-            onCommentTap: (postMap) async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => UnifiedPostDetailScreen(post: postMap),
-                ),
-              );
-            },
-            onLikeTap: _togglePostLike,
-            onDeleteTap: (postMap) async {
-              final postId = postMap['id'];
-              if (postId == null) return;
-              final index = _posts.indexWhere((item) => item.id == postId);
-              if (index == -1) return;
-              await _confirmDeletePost(_posts[index]);
-            },
           ),
         ),
       ),

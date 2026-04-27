@@ -12,6 +12,16 @@ class SearchAllResults {
   bool get isEmpty => communities.isEmpty && posts.isEmpty;
 
   static const empty = SearchAllResults(communities: [], posts: []);
+
+  SearchAllResults copyWith({
+    List<Community>? communities,
+    List<CommunityPost>? posts,
+  }) {
+    return SearchAllResults(
+      communities: communities ?? this.communities,
+      posts: posts ?? this.posts,
+    );
+  }
 }
 
 class SearchService {

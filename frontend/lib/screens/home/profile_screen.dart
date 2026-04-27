@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:pawnder_app/models/current_user.dart';
 import 'package:pawnder_app/screens/auth/login_screen.dart';
 import 'package:pawnder_app/screens/home/user_posts_screen.dart';
@@ -21,9 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _authService = AuthService();
   final _postService = PostService();
   final _profilePhotoService = ProfilePhotoService();
-  final ImagePicker _profileImagePicker = ImagePicker();
   CurrentUser? _currentUser;
-  XFile? _selectedProfilePhoto;
+  String? _profilePhotoPath;
   String? _errorMessage;
   bool _isLoading = true;
 
@@ -44,9 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() {
         _currentUser = user;
-        _selectedProfilePhoto = savedPhotoPath == null
-            ? null
-            : XFile(savedPhotoPath);
+        _profilePhotoPath = savedPhotoPath;
       });
     } catch (error) {
       if (!mounted) return;
@@ -54,40 +50,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Future<void> _pickProfilePhoto() async {
-    try {
-      final image = await _profileImagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 88,
-      );
-      if (!mounted || image == null) return;
-      final userId = _currentUser?.id;
-      if (userId != null) {
-        await _profilePhotoService.savePhotoPath(
-          userId: userId,
-          path: image.path,
-        );
-      }
-      setState(() => _selectedProfilePhoto = image);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open your photo library right now.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  Future<void> _removeProfilePhoto() async {
-    final userId = _currentUser?.id;
-    if (userId != null) {
-      await _profilePhotoService.clearPhotoPath(userId);
-    }
-    setState(() => _selectedProfilePhoto = null);
   }
 
   Future<void> _logout() async {
@@ -133,43 +95,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           _ThemeToggleTile(isDark: isDark),
           const SizedBox(height: 28),
-          _ProfilePhotoButton(
-            selectedPhoto: _selectedProfilePhoto,
-            onPressed: _pickProfilePhoto,
+          _ProfilePhotoDisplay(
+            photoPath: _profilePhotoPath,
           ),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: _pickProfilePhoto,
-            icon: const Icon(Icons.add_a_photo_outlined, size: 20),
-            label: Text(
-              _selectedProfilePhoto == null ? 'Choose photo' : 'Change photo',
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: isDark
-                  ? AppColors.darkText
-                  : theme.colorScheme.onSurface,
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          if (_selectedProfilePhoto != null)
-            TextButton.icon(
-              onPressed: _removeProfilePhoto,
-              icon: const Icon(Icons.delete_outline_rounded, size: 20),
-              label: const Text('Remove photo'),
-              style: TextButton.styleFrom(
-                foregroundColor: isDark
-                    ? AppColors.darkMuted
-                    : theme.colorScheme.onSurfaceVariant,
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
@@ -372,62 +301,30 @@ class _AccountDetailRow extends StatelessWidget {
   }
 }
 
-class _ProfilePhotoButton extends StatelessWidget {
-  final XFile? selectedPhoto;
-  final VoidCallback onPressed;
+class _ProfilePhotoDisplay extends StatelessWidget {
+  final String? photoPath;
 
-  const _ProfilePhotoButton({
-    required this.selectedPhoto,
-    required this.onPressed,
+  const _ProfilePhotoDisplay({
+    this.photoPath,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Semantics(
-      button: true,
-      label: 'Choose profile photo',
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: theme.dividerColor, width: 2),
-              ),
-              child: ClipOval(
-                child: UserAvatar(
-                  imagePath: selectedPhoto?.path,
-                  size: 96,
-                  backgroundColor: theme.cardColor,
-                  iconColor: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            Positioned(
-              right: -2,
-              bottom: 0,
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.photo_camera_outlined,
-                  color: theme.colorScheme.onPrimary,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: theme.dividerColor, width: 2),
+      ),
+      child: ClipOval(
+        child: UserAvatar(
+          imagePath: photoPath,
+          size: 96,
+          backgroundColor: theme.cardColor,
+          iconColor: theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );
