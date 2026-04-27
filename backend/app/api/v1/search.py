@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, desc
+from sqlalchemy import func, select, desc, or_
 from sqlalchemy.orm import Session, defer
 
 from app.core.security import get_current_user
@@ -13,6 +13,68 @@ from app.utils.formatting_utils import format_post_with_stats, format_neighborho
 
 router = APIRouter(prefix="/search")
 
+SIMILARITY_THRESHOLD = 0.15
+
+
+def _community_search_clauses(q: str):
+    name_vector = func.setweight(
+        func.to_tsvector('english', Community.name), 'A'
+    )
+    description_vector = func.setweight(
+        func.to_tsvector('english', func.coalesce(Community.description, '')), 'B'
+    )
+    community_vector = name_vector.op('||')(description_vector)
+    ts_query = func.websearch_to_tsquery('english', q)
+
+    name_similarity = func.similarity(Community.name, q)
+    description_similarity = func.word_similarity(
+        q, func.coalesce(Community.description, '')
+    )
+
+    fts_match = community_vector.op('@@')(ts_query)
+    trigram_match = or_(
+        name_similarity > SIMILARITY_THRESHOLD,
+        description_similarity > SIMILARITY_THRESHOLD,
+    )
+
+    rank = (
+            func.ts_rank_cd(community_vector, ts_query)
+            + name_similarity * 2.0
+            + description_similarity
+    )
+
+    return fts_match, trigram_match, rank
+
+
+def _post_search_clauses(q: str):
+    title_vector = func.setweight(
+        func.to_tsvector('english', Post.title), 'A'
+    )
+    description_vector = func.setweight(
+        func.to_tsvector('english', func.coalesce(Post.description, '')), 'B'
+    )
+    post_vector = title_vector.op('||')(description_vector)
+    ts_query = func.websearch_to_tsquery('english', q)
+
+    title_similarity = func.similarity(Post.title, q)
+    description_similarity = func.word_similarity(
+        q, func.coalesce(Post.description, '')
+    )
+
+    fts_match = post_vector.op('@@')(ts_query)
+    trigram_match = or_(
+        title_similarity > SIMILARITY_THRESHOLD,
+        description_similarity > SIMILARITY_THRESHOLD,
+    )
+
+    rank = (
+            func.ts_rank_cd(post_vector, ts_query)
+            + title_similarity * 2.0
+            + description_similarity
+    )
+
+    return fts_match, trigram_match, rank
+
 
 @router.get("/all")
 async def general_search(
@@ -20,30 +82,25 @@ async def general_search(
         session: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    ts_query = func.plainto_tsquery('english', q)
-
-    community_vector = func.to_tsvector(
-        'english',
-        Community.name + ' ' + func.coalesce(Community.description, '')
-    )
+    c_fts, c_trgm, c_rank = _community_search_clauses(q)
 
     base_community_stmt = (
         select(Community)
-        .where(community_vector.op('@@')(ts_query))
-        .order_by(desc(func.ts_rank(community_vector, ts_query)))
+        .where(or_(c_fts, c_trgm))
+        .order_by(desc(c_rank))
         .limit(5)
     )
 
     community_stmt = get_community_stats_query(current_user.id, base_community_stmt)
     community_rows = session.execute(community_stmt).all()
 
-    post_vector = func.to_tsvector('english', Post.title + ' ' + Post.description)
+    p_fts, p_trgm, p_rank = _post_search_clauses(q)
 
     post_stmt = (
         select(*get_post_stats_columns(current_user.id))
         .join(Post.author)
-        .where(post_vector.op('@@')(ts_query))
-        .order_by(desc(func.ts_rank(post_vector, ts_query)))
+        .where(or_(p_fts, p_trgm))
+        .order_by(desc(p_rank))
         .limit(10)
         .options(defer(Post.location))
     )
@@ -63,17 +120,12 @@ async def community_search(
         session: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    ts_query = func.plainto_tsquery('english', q)
-
-    community_vector = func.to_tsvector(
-        'english',
-        Community.name + ' ' + func.coalesce(Community.description, '')
-    )
+    c_fts, c_trgm, c_rank = _community_search_clauses(q)
 
     base_community_stmt = (
         select(Community)
-        .where(community_vector.op('@@')(ts_query))
-        .order_by(desc(func.ts_rank(community_vector, ts_query)))
+        .where(or_(c_fts, c_trgm))
+        .order_by(desc(c_rank))
         .offset(offset)
         .limit(limit)
     )
