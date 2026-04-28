@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environments (Covering both naming conventions)
+venv/
+.venv/
+
+# IDE & Version Control
+.git/
+.idea/
+
+# Environment Variables
+.env
+
+# Large Assets/Frontend (Add if they exist)
+node_modules/

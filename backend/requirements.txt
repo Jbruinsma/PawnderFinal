@@ -1,0 +1,29 @@
+# Web Framework & Server
+fastapi==0.135.1
+uvicorn[standard]==0.42.0
+gunicorn  # Process manager for production
+starlette
+
+# Database & Geospatial
+sqlalchemy==2.0.48
+psycopg2-binary==2.9.11
+geoalchemy2==0.18.4
+shapely
+
+# Pydantic & Configuration
+pydantic==2.12.5
+pydantic-settings==2.13.1
+pydantic[email]
+python-dotenv
+
+# Authentication & Security
+python-multipart==0.0.22
+passlib[bcrypt]
+python-jose[cryptography]
+
+# OCI & Infrastructure
+oci==2.172.0
+
+# Testing & Client
+pytest==8.4.1
+httpx==0.28.1
