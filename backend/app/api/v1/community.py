@@ -22,7 +22,7 @@ from app.schemas.core import CoordinateSchema
 from app.schemas.post import (
     CommunityPost, CommunityPostsResponse, PostCreationRequest,
     ExistingTagsResponseModel, ExistingTag, PostBookmarkResponseModel,
-    PostLikeResponseModel, PostUnlikeResponseModel, CommunityPostCommentRequest, PostComment
+    PostLikeResponseModel, PostUnlikeResponseModel, CommunityPostCommentRequest, PostComment, PostUpdateRequest
 )
 from app.services.feed_engine import generate_algorithmic_feed
 from app.utils.formatting_utils import format_post_with_stats, format_neighborhood_with_stats
@@ -356,6 +356,16 @@ def create_post(
         "post_id": str(new_post.id),
         "message": "Post created successfully"
     }
+
+
+@router.put("/posts/{post_id}", summary="Update a specific post")
+def update_post(
+        post_id: UUID,
+        payload: PostUpdateRequest,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    pass
 
 @router.delete("/posts/{post_id}", summary="Delete a post")
 def delete_post(

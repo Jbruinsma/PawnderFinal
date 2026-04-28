@@ -29,11 +29,11 @@ class PostSearchResponse(BaseModel):
     post_type: str
     title: str
     description: str
-    image_url: str | None
+    image_url: Optional[str]
     status: str
     created_at: datetime
     location: PostLocation
-    tags: list[str]
+    tags: List[str]
 
 
 class PostCreationRequest(BaseModel):
@@ -45,6 +45,11 @@ class PostCreationRequest(BaseModel):
     image_url: Optional[str] = None
     location: PostLocation
     tags: list[str]
+
+
+class PostUpdateRequest(BaseModel):
+    post_type: Optional[str] = None
+    description: Optional[str] = None
 
 
 class BookmarkRequest(BaseModel):
