@@ -122,7 +122,7 @@ def update_user_post(session: Session, payload: PostUpdateRequest, existing_post
             payload.location.latitude
         )
 
-    existing_post.edited_at = func.now()
+    existing_post.updated_at = func.now()
     existing_post.edited = True
 
     session.add(existing_post)
