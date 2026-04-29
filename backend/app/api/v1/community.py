@@ -1,6 +1,9 @@
 from typing import Optional, Any
 from uuid import UUID
 
+from sqlalchemy import cast
+from geoalchemy2 import Geography
+
 from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy import func, select, and_, Row, desc, union_all, delete, case
 from sqlalchemy.orm import Session, defer
@@ -77,9 +80,9 @@ async def retrieve_initial_feed(
 
 
 @router.get(
-    path= "/neighborhoods",
-    summary= "List available neighborhoods",
-    response_model= NeighborhoodResponseModel
+    path="/neighborhoods",
+    summary="List available neighborhoods",
+    response_model=NeighborhoodResponseModel
 )
 def get_neighborhoods(
         coords: CoordinateSchema = Depends(),
@@ -91,6 +94,9 @@ def get_neighborhoods(
         4326
     )
 
+    user_geog = cast(user_point, Geography)
+    comm_geog = cast(Community.geofence_boundary, Geography)
+
     member_count_subq = (
         select(func.count(user_communities.c.user_id))
         .where(user_communities.c.community_id == Community.id)
@@ -98,17 +104,17 @@ def get_neighborhoods(
         .scalar_subquery()
     )
 
-    distance = func.ST_Distance(Community.geofence_boundary, user_point)
+    distance = func.ST_Distance(comm_geog, user_geog)
     is_member_expr = user_communities.c.user_id.isnot(None)
 
     MEMBER_BOOST = 0.3
     POPULARITY_WEIGHT = 0.02
-    DISTANCE_WEIGHT = 1.0
+    DISTANCE_WEIGHT = 0.0001
 
     score = (
-        case((is_member_expr, MEMBER_BOOST), else_=0.0)
-        + func.ln(1 + func.coalesce(member_count_subq, 0)) * POPULARITY_WEIGHT
-        - distance * DISTANCE_WEIGHT
+            case((is_member_expr, MEMBER_BOOST), else_=0.0)
+            + func.ln(1 + func.coalesce(member_count_subq, 0)) * POPULARITY_WEIGHT
+            - distance * DISTANCE_WEIGHT
     )
 
     base_stmt = (
@@ -431,7 +437,8 @@ def update_post(
 @router.delete("/posts/{post_id}", summary="Delete a post")
 def delete_post(
     post_id: UUID,
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     post = session.execute(
         select(Post).where(Post.id == post_id)
@@ -439,6 +446,9 @@ def delete_post(
 
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this post")
 
     session.delete(post)
     session.commit()
