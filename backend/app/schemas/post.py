@@ -1,6 +1,5 @@
-import uuid
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -24,8 +23,8 @@ class PostLocation(BaseModel):
 
 
 class PostSearchResponse(BaseModel):
-    id: uuid.UUID
-    author_id: uuid.UUID
+    id: UUID
+    author_id: UUID
     post_type: str
     title: str
     description: str
@@ -74,6 +73,7 @@ class CommunityPost(BaseModel):
     like_count: int = 0
     comment_count: int = 0
     you_liked: bool = False
+    edited: bool = False
 
 
 class CommunityPostCommentRequest(BaseModel):

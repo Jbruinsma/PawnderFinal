@@ -603,23 +603,45 @@ class _StatusBadge extends StatelessWidget {
 
   const _StatusBadge({required this.label});
 
+  Color _getTextColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    if (t == 'lost pet') return Colors.redAccent;
+    if (t == 'report') return Colors.orangeAccent;
+    if (t == 'found pet') return Colors.green;
+    if (t == 'adoption') return Colors.deepPurpleAccent;
+    if (t == 'discussion') return Colors.blueAccent;
+    return theme.colorScheme.onSurface;
+  }
+
+  Color _getBgColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (t == 'lost pet') return Colors.redAccent.withValues(alpha: 0.12);
+    if (t == 'report') return Colors.orangeAccent.withValues(alpha: 0.12);
+    if (t == 'found pet') return Colors.green.withValues(alpha: 0.12);
+    if (t == 'adoption') return Colors.deepPurpleAccent.withValues(alpha: 0.12);
+    if (t == 'discussion') return Colors.blueAccent.withValues(alpha: 0.12);
+
+    return isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.08);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(7),
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.12)
-            : Colors.black.withValues(alpha: 0.08),
+        color: _getBgColor(label, theme),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       child: Text(
         label,
         style: TextStyle(
-          color: theme.colorScheme.onSurface,
+          color: _getTextColor(label, theme),
           fontSize: 11,
           fontWeight: FontWeight.w900,
         ),
