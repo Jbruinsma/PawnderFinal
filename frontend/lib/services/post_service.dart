@@ -98,6 +98,16 @@ class PostService {
     return response.data!['post_id']?.toString() ?? '';
   }
 
+  Future<void> updatePost({
+    required String postId,
+    required CreatePostRequest request,
+  }) async {
+    await _apiClient.put<Map<String, dynamic>>(
+      'community/posts/$postId',
+      data: request.toJson(),
+    );
+  }
+
   Future<List<PostComment>> getPostComments({
     required String postId,
     int limit = 25,

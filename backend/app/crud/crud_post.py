@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from geoalchemy2 import Geometry
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session, defer
 
 from app.models import Post, Tag, PostLikes, PostComments
 from app.models.user import bookmarks
-from app.schemas.post import PostCreationRequest
+from app.schemas.post import PostCreationRequest, PostUpdateRequest
 
 
 def get_post_stats_columns(current_user_id: UUID) -> list:
@@ -51,26 +52,19 @@ def retrieve_posts_with_stats(
     return session.execute(stmt).all()
 
 
-def create_post(
-        session: Session,
-        payload: PostCreationRequest
-) -> Post:
+def _get_or_create_tags(session: Session, tag_names: list[str]) -> list[Tag]:
     existing_tags = session.execute(
-        select(Tag).where(Tag.name.in_(payload.tags))
+        select(Tag).where(Tag.name.in_(tag_names))
     ).scalars().all()
 
     existing_tag_names = {tag.name for tag in existing_tags}
-    new_tag_names = set(payload.tags) - existing_tag_names
-
+    new_tag_names = set(tag_names) - existing_tag_names
     final_tags = list(existing_tags)
 
     for name in new_tag_names:
         try:
             with session.begin_nested():
-                new_tag = Tag(
-                    name= name,
-                    category= "USER_CREATED"
-                )
+                new_tag = Tag(name=name, category="USER_CREATED")
                 session.add(new_tag)
                 session.flush()
                 final_tags.append(new_tag)
@@ -81,6 +75,18 @@ def create_post(
             if recovered_tag:
                 final_tags.append(recovered_tag)
             continue
+    return final_tags
+
+
+def _convert_to_geometry(longitude: float, latitude: float):
+    return from_shape(Point(longitude, latitude), srid=4326)
+
+
+def create_post(session: Session, payload: PostCreationRequest) -> Post:
+    final_tags = _get_or_create_tags(
+        session= session,
+        tag_names= payload.tags
+    )
 
     new_post = Post(
         author_id= payload.author_id,
@@ -89,17 +95,39 @@ def create_post(
         title= payload.title,
         description= payload.description,
         image_url= payload.image_url,
-        location= from_shape(
-            Point(payload.location.longitude, payload.location.latitude),
-            srid= 4326
-        ),
+        location= _convert_to_geometry(payload.location.longitude, payload.location.latitude),
         tags= final_tags
     )
 
     session.add(new_post)
-    session.commit()
-    session.refresh(new_post)
+    session.flush()
     return new_post
+
+
+def update_user_post(session: Session, payload: PostUpdateRequest, existing_post: Post) -> Post:
+    update_data = payload.model_dump(exclude_unset=True, exclude={"tags", "location"})
+
+    for field, value in update_data.items():
+        setattr(existing_post, field, value)
+
+    if payload.tags is not None:
+        existing_post.tags = _get_or_create_tags(
+            session= session,
+            tag_names= payload.tags
+        )
+
+    if payload.location is not None:
+        existing_post.location = _convert_to_geometry(
+            payload.location.longitude,
+            payload.location.latitude
+        )
+
+    existing_post.edited_at = func.now()
+    existing_post.edited = True
+
+    session.add(existing_post)
+
+    return existing_post
 
 
 def bookmark_post_for_user(

@@ -35,7 +35,7 @@ class PostSearchResponse(BaseModel):
     tags: List[str]
 
 
-class PostCreationRequest(BaseModel):
+class BaseCommunityPost(BaseModel):
     community_id: UUID
     author_id: UUID
     post_type: str
@@ -43,12 +43,15 @@ class PostCreationRequest(BaseModel):
     description: str
     image_url: Optional[str] = None
     location: PostLocation
-    tags: list[str]
+    tags: List[str]
 
 
-class PostUpdateRequest(BaseModel):
-    post_type: Optional[str] = None
-    description: Optional[str] = None
+class PostCreationRequest(BaseCommunityPost):
+    community_id: UUID
+
+
+class PostUpdateRequest(BaseCommunityPost):
+    pass
 
 
 class BookmarkRequest(BaseModel):

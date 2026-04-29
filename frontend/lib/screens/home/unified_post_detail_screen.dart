@@ -38,6 +38,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   late int _likeCount;
   late int _commentCount;
   late bool _youLiked;
+  late bool _edited;
 
   List<PostComment> _comments = const [];
   bool _isLoadingComments = true;
@@ -52,6 +53,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
     _likeCount = int.tryParse(widget.post['likeCount'] ?? '0') ?? 0;
     _commentCount = int.tryParse(widget.post['commentCount'] ?? '0') ?? 0;
     _youLiked = widget.post['youLiked'] == 'true';
+    _edited = widget.post['edited'] == 'true';
 
     _initializeData();
   }
@@ -278,6 +280,25 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
     }
   }
 
+  Future<void> _navigateToEdit() async {
+    final didUpdate = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ListingScreen(
+          authorId: widget.post['authorId'],
+          communityId: widget.post['communityId'],
+          existingPost: widget.post,
+        ),
+      ),
+    );
+
+    if (didUpdate == true && mounted) {
+      final updatedPost = Map<String, String>.from(widget.post);
+      updatedPost['action'] = 'refresh';
+      Navigator.pop(context, updatedPost);
+    }
+  }
+
   void _startReply(PostComment comment) {
     setState(() => _replyingToCommentId = comment.commentId);
   }
@@ -348,6 +369,14 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                         ),
                       ),
                       actions: [
+                        if (_currentUserId != null && _currentUserId == post['authorId'])
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: _GlassIconButton(
+                              icon: Icons.edit_rounded,
+                              onTap: _navigateToEdit,
+                            ),
+                          ),
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: _isCheckingBookmark || _isBookmarking
@@ -517,13 +546,29 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                                           fontWeight: FontWeight.w900,
                                         ),
                                       ),
-                                      Text(
-                                        'Posted ${post['posted'] ?? 'recently'}',
-                                        style: TextStyle(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Posted ${post['posted'] ?? 'recently'}',
+                                            style: TextStyle(
+                                              color: theme.colorScheme.onSurfaceVariant,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          if (_edited) ...[
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '(edited)',
+                                              style: TextStyle(
+                                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
