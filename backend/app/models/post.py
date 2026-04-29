@@ -20,7 +20,7 @@ class Post(Base):
     location = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
     status: Mapped[str] = mapped_column(String, default="Active")
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())
-    edited_at = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at = mapped_column(DateTime(timezone=True), server_default=func.now())
     edited = mapped_column(Boolean, nullable=False, default= False)
 
     author = relationship("User", back_populates="posts")
