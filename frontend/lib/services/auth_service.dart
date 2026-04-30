@@ -34,9 +34,7 @@ class AuthService {
   }
 
   Future<void> login({required String identifier, required String password}) async {
-    final payload = identifier.contains('@')
-        ? {'email': identifier, 'password': password}
-        : {'username': identifier, 'password': password};
+    final payload = {'email': identifier, 'password': password};
 
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/auth/login',

@@ -33,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (identifier.isEmpty || password.isEmpty) {
-      _showMessage('Email/Username and password are required.');
+      _showMessage('Email and password are required.');
       return;
     }
 
@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 24),
                             ],
-                            _buildLabel(theme, 'Email or Username'),
+                            _buildLabel(theme, 'Email'),
                             const SizedBox(height: 8),
                             AuthInput(
                               controller: _identifierController,
