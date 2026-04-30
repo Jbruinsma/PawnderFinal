@@ -398,6 +398,9 @@ def update_post(
         session: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
+
+    current_user_id = current_user.id
+
     post = session.execute(
         select(Post).where(Post.id == post_id)
     ).scalars().first()
@@ -405,7 +408,7 @@ def update_post(
     if not post:
         raise HTTPException(status_code= 404, detail= "Post not found")
 
-    if (current_user.id != post.author_id) or (current_user.id != payload.author_id):
+    if (current_user_id != post.author_id) or (current_user_id != payload.author_id):
         raise HTTPException(
             status_code= 403,
             detail= "You cannot update a post on the behalf of another user"
@@ -421,11 +424,23 @@ def update_post(
         session.commit()
         session.refresh(updated_post)
 
+        stmt = (
+            select(*get_post_stats_columns(current_user_id))
+            .join(Post.author)
+            .where(Post.id == updated_post.id)
+        )
+
+        row = session.execute(stmt).first()
+        if not row:
+            raise HTTPException(status_code= 404, detail= "Post not found")
+
         return {
             "status": "success",
             "post_id": str(updated_post.id),
-            "message": "Post updated successfully"
+            "message": "Post updated successfully",
+            "updated_post": format_post_with_stats(row)
         }
+
     except Exception:
 
         session.rollback()
