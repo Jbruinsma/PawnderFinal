@@ -57,13 +57,11 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
     _loadCurrentUserId();
     _checkIfJoined();
 
-    // Fetch fresh community data immediately to sync post counts
-    // in case the user just returned from creating a post
     _refreshPosts(isSilent: true);
 
     _pollTimer = Timer.periodic(
       const Duration(seconds: 15),
-          (_) => _refreshPosts(isSilent: true),
+      (_) => _refreshPosts(isSilent: true),
     );
   }
 
@@ -127,7 +125,6 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
       setState(() => _isRefreshing = true);
     }
     try {
-      // Fetch both fresh posts AND the community data to ensure the postCount is accurate
       final freshCommunity = await _communityService.getCommunityById(communityId: _community.id);
       final freshPosts = await _postService.getCommunityPosts(
         communityId: _community.id,
@@ -140,7 +137,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
         for (final post in _posts) {
           _commentsByPostId.putIfAbsent(
             post.id,
-                () => List<PostComment>.from(post.comments),
+            () => List<PostComment>.from(post.comments),
           );
         }
       });
@@ -160,9 +157,15 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index != -1) {
         _posts[index] = _posts[index].copyWith(
+          title: updatedPost['title'],
+          description: updatedPost['description'],
+          postType: updatedPost['postType'],
+          imageUrl: updatedPost['image'],
+          tags: updatedPost['tags']?.split('|').where((t) => t.isNotEmpty).toList(),
           likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
           commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
           youLiked: updatedPost['youLiked'] == 'true',
+          edited: updatedPost['edited'] == 'true',
         );
       }
     });
@@ -195,7 +198,7 @@ class _CommunityPostsScreenState extends State<CommunityPostsScreen> {
         _posts = _posts.where((p) => p.id != post.id).toList();
       });
       widget.onPostDelete?.call(post.id);
-      _refreshPosts(isSilent: true); // Update the overall community post count
+      _refreshPosts(isSilent: true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

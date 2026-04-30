@@ -110,9 +110,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _isLocationBlocked = status == LocationPermission.denied ||
                              status == LocationPermission.deniedForever;
       });
-      if (!_isLocationBlocked) {
-        _loadCommunityData();
-      }
     }
   }
 
@@ -133,27 +130,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _fetchFeedData(
-    double lat,
-    double lon, {
-    required bool isSilentUpdate,
-  }) async {
-    if (!isSilentUpdate && mounted) {
-      setState(() => _isFetchingFeed = true);
-    }
-
-    if (_currentUser == null) {
-      try {
-        _currentUser = await _authService.getCurrentUser();
-      } catch (_) {
-        _currentUser = null;
-      }
-    }
-
+  Future<void> _fetchNeighborhoods(double lat, double lon) async {
     List<Community> nearbyCommunities = const [];
     List<Community> savedCommunities = const [];
-    List<CommunityPost> posts = const [];
-    List<String> tags = _defaultCategories;
 
     try {
       nearbyCommunities = await _communityService.getNeighborhoods(
@@ -166,29 +145,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       try {
         savedCommunities = await _communityService.getMyNeighborhoods();
       } catch (_) {}
-    }
-
-    try {
-      final feedData = await _feedService.getNewFeed(
-        latitude: lat,
-        longitude: lon,
-      );
-      posts = feedData['posts'] as List<CommunityPost>;
-      final apiTags = feedData['applicable_tags'] as List<String>;
-      if (apiTags.isNotEmpty) {
-        tags = apiTags;
-      }
-    } catch (_) {
-      if (mounted && !isSilentUpdate) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text(
-              'Communities loaded. Showing sample posts while the backend feed catches up.',
-            ),
-          ),
-        );
-      }
     }
 
     Community? selectedCommunity;
@@ -206,15 +162,59 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (mounted) {
       setState(() {
-        _feedCategories = tags;
-        _isFetchingFeed = false;
         _joinedCommunityIds = savedCommunities
             .map((community) => community.id)
             .toSet();
         _nearbyCommunities = nearbyCommunities;
+        _selectedCommunityName = defaultCommunity?.name;
+        _isLoadingCommunityPosts = false;
+      });
+    }
+  }
+
+  Future<void> _fetchFeedData(
+    double lat,
+    double lon, {
+    required bool isSilentUpdate,
+  }) async {
+    if (!isSilentUpdate && mounted) {
+      setState(() => _isFetchingFeed = true);
+    }
+
+    _currentUser ??= await _authService.getCurrentUser();
+
+    List<CommunityPost> posts = const [];
+    List<String> tags = _defaultCategories;
+
+    try {
+      final feedData = await _feedService.getNewFeed(
+        latitude: lat,
+        longitude: lon,
+      );
+      posts = feedData['posts'] as List<CommunityPost>;
+      final apiTags = feedData['applicable_tags'] as List<String>;
+      if (apiTags.isNotEmpty) {
+        tags = apiTags;
+      }
+    } catch (_) {
+      if (mounted && !isSilentUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              'Showing sample posts while the backend feed catches up.',
+            ),
+          ),
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _feedCategories = tags;
+        _isFetchingFeed = false;
         _nearbyPets = posts.map((post) => post.toPetMap()).toList();
         _recommendedPosts = posts;
-        _selectedCommunityName = defaultCommunity?.name;
         _shouldShowFallbackPets = _nearbyPets.isEmpty;
         if (!isSilentUpdate) {
           _isLoadingCommunityPosts = false;
@@ -305,6 +305,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
       _loadCommunityData();
+    } else if (index == 1 && _nearbyCommunities.isEmpty) {
+      _loadCommunityData();
     }
 
     if (index != 2) {
@@ -321,9 +323,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final recIndex = _recommendedPosts.indexWhere((p) => p.id == postId);
       if (recIndex != -1) {
         _recommendedPosts[recIndex] = _recommendedPosts[recIndex].copyWith(
+          title: updatedPost['title'],
+          description: updatedPost['description'],
+          postType: updatedPost['postType'],
+          imageUrl: updatedPost['image'],
+          tags: updatedPost['tags']?.split('|').where((t) => t.isNotEmpty).toList(),
           commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
           likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
           youLiked: updatedPost['youLiked'] == 'true',
+          edited: updatedPost['edited'] == 'true',
         );
         _nearbyPets = _recommendedPosts.map((post) => post.toPetMap()).toList();
       }
@@ -362,8 +370,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _loadCommunityData() async {
     setState(() {
-      _isFetchingFeed = true;
-      _isLoadingCommunityPosts = true;
+      if (_selectedNavIndex == 0) _isFetchingFeed = true;
+      if (_selectedNavIndex == 1) _isLoadingCommunityPosts = true;
     });
 
     try {
@@ -384,7 +392,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
     } catch (_) {}
 
-    await _fetchFeedData(lat, lon, isSilentUpdate: false);
+    if (_selectedNavIndex == 1) {
+      await _fetchNeighborhoods(lat, lon);
+    } else {
+      await _fetchFeedData(lat, lon, isSilentUpdate: false);
+    }
 
     if (_locationFuture != null) {
       _locationFuture!
@@ -403,11 +415,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               );
 
               if (latDiff > _coordThreshold || lonDiff > _coordThreshold) {
-                await _fetchFeedData(
-                  actualLocation.latitude,
-                  actualLocation.longitude,
-                  isSilentUpdate: true,
-                );
+                if (_selectedNavIndex == 1) {
+                  await _fetchNeighborhoods(actualLocation.latitude, actualLocation.longitude);
+                } else {
+                  await _fetchFeedData(
+                    actualLocation.latitude,
+                    actualLocation.longitude,
+                    isSilentUpdate: true,
+                  );
+                }
               }
             }
           })

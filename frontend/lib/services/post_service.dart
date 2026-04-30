@@ -98,14 +98,18 @@ class PostService {
     return response.data!['post_id']?.toString() ?? '';
   }
 
-  Future<void> updatePost({
+  Future<CommunityPost> updatePost({
     required String postId,
     required CreatePostRequest request,
   }) async {
-    await _apiClient.put<Map<String, dynamic>>(
+    final response = await _apiClient.put<Map<String, dynamic>>(
       'community/posts/$postId',
       data: request.toJson(),
     );
+
+    final updatedPostData =
+        response.data?['updated_post'] as Map<String, dynamic>? ?? const {};
+    return CommunityPost.fromJson(updatedPostData);
   }
 
   Future<List<PostComment>> getPostComments({

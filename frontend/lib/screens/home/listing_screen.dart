@@ -250,19 +250,19 @@ class _ListingScreenState extends State<ListingScreen> {
 
     try {
       if (isEditing) {
-        await _postService.updatePost(
+        final updatedPost = await _postService.updatePost(
           postId: widget.existingPost!['id']!,
           request: request,
         );
         if (!mounted) return;
-        _showMessage('Listing updated.');
+        _showMessage('Post updated.');
+        Navigator.pop(context, updatedPost.toFeedMap());
       } else {
         await _postService.createPost(request);
         if (!mounted) return;
-        _showMessage('Listing posted.');
+        _showMessage('Post created.');
+        Navigator.pop(context, true);
       }
-
-      Navigator.pop(context, true);
     } catch (error) {
       if (mounted) _showMessage(_apiClient.messageForError(error));
     } finally {

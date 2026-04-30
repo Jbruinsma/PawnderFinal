@@ -311,9 +311,15 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         final searchIndex = searchPosts.indexWhere((p) => p.id == result['id']);
         if (searchIndex != -1) {
           searchPosts[searchIndex] = searchPosts[searchIndex].copyWith(
+            title: result['title'],
+            description: result['description'],
+            postType: result['postType'],
+            imageUrl: result['image'],
+            tags: result['tags']?.split('|').where((t) => t.isNotEmpty).toList(),
             commentCount: int.tryParse(result['commentCount'] ?? '0') ?? 0,
             likeCount: int.tryParse(result['likeCount'] ?? '0') ?? 0,
             youLiked: result['youLiked'] == 'true',
+            edited: result['edited'] == 'true',
           );
           _results = _results.copyWith(posts: searchPosts);
         }
