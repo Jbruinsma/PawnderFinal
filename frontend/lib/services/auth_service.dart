@@ -3,10 +3,18 @@ import 'package:pawnder_app/models/community_post.dart';
 import 'package:pawnder_app/services/api_client.dart';
 
 class AuthService {
-  AuthService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  static final AuthService _instance = AuthService._internal();
+
+  factory AuthService({ApiClient? apiClient}) {
+    return _instance;
+  }
+
+  AuthService._internal({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
+
   CurrentUser? _cachedUser;
+  Future<CurrentUser>? _userFetchFuture;
 
   Future<void> register({
     required String fullName,
@@ -48,14 +56,27 @@ class AuthService {
       return _cachedUser!;
     }
 
-    final response = await _apiClient.get<Map<String, dynamic>>('/auth/me');
-
-    if (response.data == null) {
-      throw Exception('Failed to load user profile data.');
+    if (_userFetchFuture != null && !forceRefresh) {
+      return await _userFetchFuture!;
     }
 
-    _cachedUser = CurrentUser.fromJson(response.data!);
-    return _cachedUser!;
+    _userFetchFuture = _fetchAndCacheUser();
+    return await _userFetchFuture!;
+  }
+
+  Future<CurrentUser> _fetchAndCacheUser() async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>('/auth/me');
+
+      if (response.data == null) {
+        throw Exception('Failed to load user profile data.');
+      }
+
+      _cachedUser = CurrentUser.fromJson(response.data!);
+      return _cachedUser!;
+    } finally {
+      _userFetchFuture = null;
+    }
   }
 
   Future<void> updateLocation(PostLocation location) async {
@@ -71,6 +92,7 @@ class AuthService {
 
   Future<void> logout() async {
     _cachedUser = null;
+    _userFetchFuture = null;
     return _apiClient.clearToken();
   }
 
