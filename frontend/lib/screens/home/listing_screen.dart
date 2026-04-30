@@ -20,6 +20,7 @@ class ListingScreen extends StatefulWidget {
   final String? communityId;
   final String? initialCommunityId;
   final List<Community> communities;
+  final Map<String, String>? existingPost;
 
   const ListingScreen({
     super.key,
@@ -27,6 +28,7 @@ class ListingScreen extends StatefulWidget {
     this.communityId,
     this.initialCommunityId,
     this.communities = const [],
+    this.existingPost,
   });
 
   @override
@@ -65,19 +67,70 @@ class _ListingScreenState extends State<ListingScreen> {
   ];
 
   bool get _shouldShowCommunityPicker =>
-      widget.communityId == null && widget.communities.isNotEmpty;
+      widget.communityId == null && widget.communities.isNotEmpty && widget.existingPost == null;
+
+  bool get _hasChanges {
+    if (widget.existingPost == null) return true;
+
+    final currentTitle = _titleController.text.trim();
+    final originalTitle = widget.existingPost!['title'] ?? '';
+    if (currentTitle != originalTitle) return true;
+
+    final currentDesc = _descriptionController.text.trim();
+    final originalDesc = widget.existingPost!['description'] ?? '';
+    if (currentDesc != originalDesc) return true;
+
+    final originalType = widget.existingPost!['postType'];
+    if (_selectedPostType != originalType) return true;
+
+    final originalCommunity = widget.existingPost!['communityId'];
+    if (_selectedCommunityId != originalCommunity) return true;
+
+    final originalTags = (widget.existingPost!['tags'] ?? '').split('|').where((t) => t.isNotEmpty).toList();
+    if (_selectedTags.length != originalTags.length) return true;
+    for (final tag in _selectedTags) {
+      if (!originalTags.contains(tag)) return true;
+    }
+
+    if (_imageBytes != null) return true;
+
+    return false;
+  }
 
   @override
   void initState() {
     super.initState();
-    _selectedCommunityId =
-        widget.communityId ??
-        widget.initialCommunityId ??
-        (widget.communities.isNotEmpty ? widget.communities.first.id : null);
+
+    if (widget.existingPost != null) {
+      _titleController.text = widget.existingPost!['title'] ?? '';
+      _descriptionController.text = widget.existingPost!['description'] ?? '';
+      _selectedPostType = widget.existingPost!['postType'];
+
+      final tags = (widget.existingPost!['tags'] ?? '').split('|').where((t) => t.isNotEmpty);
+      _selectedTags.addAll(tags);
+
+      _selectedCommunityId = widget.existingPost!['communityId'];
+    } else {
+      _selectedCommunityId =
+          widget.communityId ??
+          widget.initialCommunityId ??
+          (widget.communities.isNotEmpty ? widget.communities.first.id : null);
+    }
+
+    _titleController.addListener(_onTextChanged);
+    _descriptionController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    if (widget.existingPost != null) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_onTextChanged);
+    _descriptionController.removeListener(_onTextChanged);
     _titleController.dispose();
     _descriptionController.dispose();
     _tagSearchController.dispose();
@@ -135,6 +188,7 @@ class _ListingScreenState extends State<ListingScreen> {
     FocusScope.of(context).unfocus();
     final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
+    final isEditing = widget.existingPost != null;
 
     if (title.isEmpty || description.isEmpty) {
       _showMessage('Title and description are required.');
@@ -151,7 +205,7 @@ class _ListingScreenState extends State<ListingScreen> {
       return;
     }
 
-    final authorId = widget.authorId;
+    final authorId = widget.authorId ?? widget.existingPost?['authorId'];
     final communityId = widget.communityId ?? _selectedCommunityId;
 
     if (authorId == null || communityId == null) {
@@ -167,7 +221,7 @@ class _ListingScreenState extends State<ListingScreen> {
       if (current != null) location = current;
     } catch (_) {}
 
-    String? imageUrl;
+    String? imageUrl = widget.existingPost?['image'];
     if (_imageBytes != null && _imageContentType != null) {
       try {
         imageUrl = await _uploadService.uploadImage(
@@ -183,21 +237,31 @@ class _ListingScreenState extends State<ListingScreen> {
       }
     }
 
+    final request = CreatePostRequest(
+      communityId: communityId,
+      authorId: authorId,
+      postType: _selectedPostType!,
+      title: title,
+      description: description,
+      location: location,
+      tags: _selectedTags,
+      imageUrl: imageUrl,
+    );
+
     try {
-      await _postService.createPost(
-        CreatePostRequest(
-          communityId: communityId,
-          authorId: authorId,
-          postType: _selectedPostType!,
-          title: title,
-          description: description,
-          location: location,
-          tags: _selectedTags,
-          imageUrl: imageUrl,
-        ),
-      );
-      if (!mounted) return;
-      _showMessage('Listing posted.');
+      if (isEditing) {
+        await _postService.updatePost(
+          postId: widget.existingPost!['id']!,
+          request: request,
+        );
+        if (!mounted) return;
+        _showMessage('Listing updated.');
+      } else {
+        await _postService.createPost(request);
+        if (!mounted) return;
+        _showMessage('Listing posted.');
+      }
+
       Navigator.pop(context, true);
     } catch (error) {
       if (mounted) _showMessage(_apiClient.messageForError(error));
@@ -216,6 +280,7 @@ class _ListingScreenState extends State<ListingScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isEditing = widget.existingPost != null;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -234,10 +299,10 @@ class _ListingScreenState extends State<ListingScreen> {
                   icon: Icon(Icons.arrow_back_ios_new_rounded, size: 32, color: theme.colorScheme.onSurface),
                 ),
                 const SizedBox(height: 18),
-                const HomeHeader(
-                  title: 'CREATE POST',
-                  subtitle: 'Share a quick alert with your neighborhood',
-                  icon: Icons.add_location_alt_outlined,
+                HomeHeader(
+                  title: isEditing ? 'EDIT POST' : 'CREATE POST',
+                  subtitle: isEditing ? 'Update your neighborhood alert' : 'Share a quick alert with your neighborhood',
+                  icon: isEditing ? Icons.edit_note_rounded : Icons.add_location_alt_outlined,
                 ),
                 const SizedBox(height: 28),
 
@@ -362,7 +427,7 @@ class _ListingScreenState extends State<ListingScreen> {
                 ImagePickerCard(
                   bytes: _imageBytes,
                   contentType: _imageContentType,
-                  emptyTitle: 'Add photo',
+                  emptyTitle: isEditing && (widget.existingPost?['image']?.isNotEmpty ?? false) ? 'Replace photo' : 'Add photo',
                   onPicked: (bytes, contentType) => setState(() { _imageBytes = bytes; _imageContentType = contentType; }),
                 ),
                 const SizedBox(height: 24),
@@ -378,7 +443,7 @@ class _ListingScreenState extends State<ListingScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    onPressed: _isSubmitting ? null : _submitListing,
+                    onPressed: (_isSubmitting || !_hasChanges) ? null : _submitListing,
                     child: _isSubmitting
                         ? SizedBox(
                             width: 22,
@@ -388,9 +453,9 @@ class _ListingScreenState extends State<ListingScreen> {
                               color: theme.colorScheme.onPrimary,
                             ),
                           )
-                        : const Text(
-                            'Upload Post',
-                            style: TextStyle(
+                        : Text(
+                            isEditing ? 'Update Post' : 'Upload Post',
+                            style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w900,
                             ),

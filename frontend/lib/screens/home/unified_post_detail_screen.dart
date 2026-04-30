@@ -38,6 +38,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   late int _likeCount;
   late int _commentCount;
   late bool _youLiked;
+  late bool _edited;
 
   List<PostComment> _comments = const [];
   bool _isLoadingComments = true;
@@ -52,6 +53,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
     _likeCount = int.tryParse(widget.post['likeCount'] ?? '0') ?? 0;
     _commentCount = int.tryParse(widget.post['commentCount'] ?? '0') ?? 0;
     _youLiked = widget.post['youLiked'] == 'true';
+    _edited = widget.post['edited'] == 'true';
 
     _initializeData();
   }
@@ -278,6 +280,25 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
     }
   }
 
+  Future<void> _navigateToEdit() async {
+    final didUpdate = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ListingScreen(
+          authorId: widget.post['authorId'],
+          communityId: widget.post['communityId'],
+          existingPost: widget.post,
+        ),
+      ),
+    );
+
+    if (didUpdate == true && mounted) {
+      final updatedPost = Map<String, String>.from(widget.post);
+      updatedPost['action'] = 'refresh';
+      Navigator.pop(context, updatedPost);
+    }
+  }
+
   void _startReply(PostComment comment) {
     setState(() => _replyingToCommentId = comment.commentId);
   }
@@ -348,6 +369,14 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                         ),
                       ),
                       actions: [
+                        if (_currentUserId != null && _currentUserId == post['authorId'])
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: _GlassIconButton(
+                              icon: Icons.edit_rounded,
+                              onTap: _navigateToEdit,
+                            ),
+                          ),
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: _isCheckingBookmark || _isBookmarking
@@ -407,18 +436,16 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                           decoration: BoxDecoration(
-                                            color: isDark
-                                                ? Colors.black.withValues(alpha: 0.5)
-                                                : Colors.white.withValues(alpha: 0.6),
+                                            color: _StatusBadge.getBgColor(post['postType'] ?? 'Post', theme).withValues(alpha: isDark ? 0.3 : 0.6),
                                             borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
-                                              color: theme.dividerColor.withValues(alpha: 0.5),
+                                              color: _StatusBadge.getTextColor(post['postType'] ?? 'Post', theme).withValues(alpha: 0.5),
                                             ),
                                           ),
                                           child: Text(
-                                            (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
+                                            post['postType'] ?? 'Post',
                                             style: TextStyle(
-                                              color: theme.colorScheme.onSurface,
+                                              color: _StatusBadge.getTextColor(post['postType'] ?? 'Post', theme),
                                               fontWeight: FontWeight.w900,
                                             ),
                                           ),
@@ -517,13 +544,29 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                                           fontWeight: FontWeight.w900,
                                         ),
                                       ),
-                                      Text(
-                                        'Posted ${post['posted'] ?? 'recently'}',
-                                        style: TextStyle(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Posted ${post['posted'] ?? 'recently'}',
+                                            style: TextStyle(
+                                              color: theme.colorScheme.onSurfaceVariant,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          if (_edited) ...[
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '(edited)',
+                                              style: TextStyle(
+                                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -549,7 +592,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                                 children: [
                                   if (!hasImage)
                                     _StatusBadge(
-                                      label: (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
+                                      label: post['postType'] ?? 'Post',
                                     ),
                                   ...tags.map((tag) => ClipRRect(
                                     borderRadius: BorderRadius.circular(999),
@@ -1044,23 +1087,45 @@ class _StatusBadge extends StatelessWidget {
 
   const _StatusBadge({required this.label});
 
+  static Color getTextColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    if (t == 'lost pet') return Colors.redAccent;
+    if (t == 'report') return Colors.orangeAccent;
+    if (t == 'found pet') return Colors.green;
+    if (t == 'adoption') return Colors.deepPurpleAccent;
+    if (t == 'discussion') return Colors.blueAccent;
+    return theme.colorScheme.onSurface;
+  }
+
+  static Color getBgColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (t == 'lost pet') return Colors.redAccent.withValues(alpha: 0.12);
+    if (t == 'report') return Colors.orangeAccent.withValues(alpha: 0.12);
+    if (t == 'found pet') return Colors.green.withValues(alpha: 0.12);
+    if (t == 'adoption') return Colors.deepPurpleAccent.withValues(alpha: 0.12);
+    if (t == 'discussion') return Colors.blueAccent.withValues(alpha: 0.12);
+
+    return isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.08);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.12)
-            : Colors.black.withValues(alpha: 0.08),
+        color: getBgColor(label, theme),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: theme.colorScheme.onSurface,
+          color: getTextColor(label, theme),
           fontSize: 12,
           fontWeight: FontWeight.w900,
         ),

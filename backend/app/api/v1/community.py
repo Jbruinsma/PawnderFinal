@@ -1,6 +1,9 @@
 from typing import Optional, Any
 from uuid import UUID
 
+from sqlalchemy import cast
+from geoalchemy2 import Geography
+
 from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy import func, select, and_, Row, desc, union_all, delete, case
 from sqlalchemy.orm import Session, defer
@@ -26,6 +29,7 @@ from app.schemas.post import (
 )
 from app.services.feed_engine import generate_algorithmic_feed
 from app.utils.formatting_utils import format_post_with_stats, format_neighborhood_with_stats
+from crud.crud_post import update_user_post
 
 router = APIRouter(
     prefix="/community",
@@ -76,9 +80,9 @@ async def retrieve_initial_feed(
 
 
 @router.get(
-    path= "/neighborhoods",
-    summary= "List available neighborhoods",
-    response_model= NeighborhoodResponseModel
+    path="/neighborhoods",
+    summary="List available neighborhoods",
+    response_model=NeighborhoodResponseModel
 )
 def get_neighborhoods(
         coords: CoordinateSchema = Depends(),
@@ -90,6 +94,9 @@ def get_neighborhoods(
         4326
     )
 
+    user_geog = cast(user_point, Geography)
+    comm_geog = cast(Community.geofence_boundary, Geography)
+
     member_count_subq = (
         select(func.count(user_communities.c.user_id))
         .where(user_communities.c.community_id == Community.id)
@@ -97,17 +104,17 @@ def get_neighborhoods(
         .scalar_subquery()
     )
 
-    distance = func.ST_Distance(Community.geofence_boundary, user_point)
+    distance = func.ST_Distance(comm_geog, user_geog)
     is_member_expr = user_communities.c.user_id.isnot(None)
 
     MEMBER_BOOST = 0.3
     POPULARITY_WEIGHT = 0.02
-    DISTANCE_WEIGHT = 1.0
+    DISTANCE_WEIGHT = 0.0001
 
     score = (
-        case((is_member_expr, MEMBER_BOOST), else_=0.0)
-        + func.ln(1 + func.coalesce(member_count_subq, 0)) * POPULARITY_WEIGHT
-        - distance * DISTANCE_WEIGHT
+            case((is_member_expr, MEMBER_BOOST), else_=0.0)
+            + func.ln(1 + func.coalesce(member_count_subq, 0)) * POPULARITY_WEIGHT
+            - distance * DISTANCE_WEIGHT
     )
 
     base_stmt = (
@@ -327,10 +334,16 @@ async def get_posts(
         posts=formatted_posts
     )
 
-@router.post("/posts", summary="Create a new community post")
+
+@router.post(
+    path= "/posts",
+    summary= "Create a new community post",
+    status_code= status.HTTP_201_CREATED
+)
 def create_post(
-    payload: PostCreationRequest,
-    session: Session = Depends(get_db)
+        payload: PostCreationRequest,
+        session: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     stmt = (
         union_all(
@@ -343,34 +356,89 @@ def create_post(
     if len(combined_check) < 2:
         author_exists = any(uid == payload.author_id for uid in combined_check)
         if not author_exists:
-            raise HTTPException(status_code=404, detail="Author not found")
-        raise HTTPException(status_code=404, detail="Community not found")
+            raise HTTPException(status_code= 404, detail= "Author not found")
 
-    new_post: Post = db_create_post(
-        session= session,
-        payload= payload
-    )
+        if current_user.id != payload.author_id:
+            raise HTTPException(
+                status_code= 403,
+                detail= "You cannot post on the behalf of another user"
+            )
 
-    return {
-        "status": "success",
-        "post_id": str(new_post.id),
-        "message": "Post created successfully"
-    }
+        raise HTTPException(status_code= 404, detail= "Community not found")
+
+    try:
+        new_post: Post = db_create_post(
+            session= session,
+            payload= payload
+        )
+        session.commit()
+        session.refresh(new_post)
+
+        return {
+            "status": "success",
+            "post_id": str(new_post.id),
+            "message": "Post created successfully"
+        }
+
+    except Exception:
+        session.rollback()
+        raise HTTPException(
+            status_code= 500,
+            detail= "An error occurred while creating the post"
+        )
 
 
-@router.put("/posts/{post_id}", summary="Update a specific post")
+@router.put(
+    path= "/posts/{post_id}",
+    summary= "Update a specific post"
+)
 def update_post(
         post_id: UUID,
         payload: PostUpdateRequest,
         session: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    pass
+    post = session.execute(
+        select(Post).where(Post.id == post_id)
+    ).scalars().first()
+
+    if not post:
+        raise HTTPException(status_code= 404, detail= "Post not found")
+
+    if (current_user.id != post.author_id) or (current_user.id != payload.author_id):
+        raise HTTPException(
+            status_code= 403,
+            detail= "You cannot update a post on the behalf of another user"
+        )
+
+    try:
+        updated_post = update_user_post(
+            session= session,
+            payload= payload,
+            existing_post= post
+        )
+
+        session.commit()
+        session.refresh(updated_post)
+
+        return {
+            "status": "success",
+            "post_id": str(updated_post.id),
+            "message": "Post updated successfully"
+        }
+    except Exception:
+
+        session.rollback()
+        raise HTTPException(
+            status_code= 400,
+            detail= "Failed to update your post"
+        )
 
 @router.delete("/posts/{post_id}", summary="Delete a post")
 def delete_post(
     post_id: UUID,
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     post = session.execute(
         select(Post).where(Post.id == post_id)
@@ -378,6 +446,9 @@ def delete_post(
 
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this post")
 
     session.delete(post)
     session.commit()

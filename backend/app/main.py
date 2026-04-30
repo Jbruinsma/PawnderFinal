@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import engine
 from . import models
-from .api.v1 import auth, geo, community, messages, search
+from .api.v1 import auth, community, messages, search
 from .core.config import settings
 
 load_dotenv()
@@ -34,7 +34,6 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(community.router, prefix="/api/v1")
-app.include_router(geo.router, prefix="/api/v1")
 app.include_router(messages.router, prefix="/api/v1")
 app.include_router(messages.messages_router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")

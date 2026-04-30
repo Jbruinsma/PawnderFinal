@@ -1,6 +1,6 @@
 import uuid
 from geoalchemy2 import Geometry
-from sqlalchemy import String, Text, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import String, Text, ForeignKey, DateTime, UniqueConstraint, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -20,6 +20,8 @@ class Post(Base):
     location = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
     status: Mapped[str] = mapped_column(String, default="Active")
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at = mapped_column(DateTime(timezone=True), server_default=func.now())
+    edited = mapped_column(Boolean, nullable=False, default= False)
 
     author = relationship("User", back_populates="posts")
     community = relationship("Community")

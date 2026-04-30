@@ -1,14 +1,13 @@
-from geoalchemy2.shape import to_shape
-
+from app.models import Post
 from app.schemas.community import Neighborhood
 from app.schemas.post import CommunityPost, PostLocation
 
 
 def format_post_with_stats(row) -> CommunityPost:
-    post = row.Post
-    like_count = row.like_count
-    comment_count = row.comment_count
-    you_liked = row.you_liked
+    post: Post = row.Post
+    like_count: int = row.like_count
+    comment_count: int = row.comment_count
+    you_liked: bool = row.you_liked
 
     return CommunityPost(
         post_id= post.id,
@@ -28,7 +27,8 @@ def format_post_with_stats(row) -> CommunityPost:
         ),
         like_count= like_count,
         comment_count= comment_count,
-        you_liked= you_liked
+        you_liked= you_liked,
+        edited= post.edited
     )
 
 

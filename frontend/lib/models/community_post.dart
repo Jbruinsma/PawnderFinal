@@ -30,6 +30,7 @@ class CommunityPost {
     this.likeCount = 0,
     this.commentCount = 0,
     this.youLiked = false,
+    this.edited = false,
     this.comments = const [],
     this.communityId,
     this.authorName,
@@ -51,6 +52,7 @@ class CommunityPost {
   final int likeCount;
   final int commentCount;
   final bool youLiked;
+  final bool edited;
   final List<PostComment> comments;
 
   String get formattedCreatedAt {
@@ -82,6 +84,7 @@ class CommunityPost {
       likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       youLiked: json['you_liked'] as bool? ?? false,
+      edited: json['edited'] as bool? ?? false,
       comments: (json['comments'] as List<dynamic>? ?? const [])
           .map(
             (comment) => PostComment.fromJson(comment as Map<String, dynamic>),
@@ -112,6 +115,7 @@ class CommunityPost {
       'commentCount': '$commentCount',
       'likeCount': '$likeCount',
       'youLiked': '$youLiked',
+      'edited': '$edited',
     };
   }
 
@@ -131,6 +135,7 @@ class CommunityPost {
     int? likeCount,
     int? commentCount,
     bool? youLiked,
+    bool? edited,
     List<PostComment>? comments,
   }) {
     return CommunityPost(
@@ -149,6 +154,7 @@ class CommunityPost {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       youLiked: youLiked ?? this.youLiked,
+      edited: edited ?? this.edited,
       comments: comments ?? this.comments,
     );
   }
