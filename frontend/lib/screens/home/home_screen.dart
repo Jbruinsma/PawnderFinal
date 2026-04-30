@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -70,7 +71,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   StreamSubscription? _messageSubscription;
   List<Community> _nearbyCommunities = const [];
   List<Map<String, String>> _nearbyPets = [];
-  List<CommunityPost> _recommendedPosts = const [];
+
+  List<CommunityPost> _lostPosts = const [];
+  List<CommunityPost> _foundPosts = const [];
+  List<CommunityPost> _miscPosts = const [];
+
   String _selectedCategory = 'all';
   String? _selectedCommunityName;
   late int _selectedNavIndex;
@@ -183,7 +188,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     _currentUser ??= await _authService.getCurrentUser();
 
-    List<CommunityPost> posts = const [];
+    List<CommunityPost> lost = const [];
+    List<CommunityPost> found = const [];
+    List<CommunityPost> misc = const [];
     List<String> tags = _defaultCategories;
 
     try {
@@ -191,7 +198,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         latitude: lat,
         longitude: lon,
       );
-      posts = feedData['posts'] as List<CommunityPost>;
+
+      final postsMap = feedData['posts'] as Map<String, dynamic>? ?? const {};
+      lost = (postsMap['lost'] as List?)?.cast<CommunityPost>() ?? const [];
+      found = (postsMap['found'] as List?)?.cast<CommunityPost>() ?? const [];
+      misc = (postsMap['misc'] as List?)?.cast<CommunityPost>() ?? const [];
+
       final apiTags = feedData['applicable_tags'] as List<String>;
       if (apiTags.isNotEmpty) {
         tags = apiTags;
@@ -213,8 +225,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         _feedCategories = tags;
         _isFetchingFeed = false;
-        _nearbyPets = posts.map((post) => post.toPetMap()).toList();
-        _recommendedPosts = posts;
+        _lostPosts = lost;
+        _foundPosts = found;
+        _miscPosts = misc;
+        _nearbyPets = [...lost, ...found, ...misc].map((post) => post.toPetMap()).toList();
         _shouldShowFallbackPets = _nearbyPets.isEmpty;
         if (!isSilentUpdate) {
           _isLoadingCommunityPosts = false;
@@ -320,21 +334,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() {
       final postId = updatedPost['id'];
 
-      final recIndex = _recommendedPosts.indexWhere((p) => p.id == postId);
-      if (recIndex != -1) {
-        _recommendedPosts[recIndex] = _recommendedPosts[recIndex].copyWith(
-          title: updatedPost['title'],
-          description: updatedPost['description'],
-          postType: updatedPost['postType'],
-          imageUrl: updatedPost['image'],
-          tags: updatedPost['tags']?.split('|').where((t) => t.isNotEmpty).toList(),
-          commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
-          likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
-          youLiked: updatedPost['youLiked'] == 'true',
-          edited: updatedPost['edited'] == 'true',
-        );
-        _nearbyPets = _recommendedPosts.map((post) => post.toPetMap()).toList();
+      void updateInList(List<CommunityPost> list) {
+        final recIndex = list.indexWhere((p) => p.id == postId);
+        if (recIndex != -1) {
+          list[recIndex] = list[recIndex].copyWith(
+            title: updatedPost['title'],
+            description: updatedPost['description'],
+            postType: updatedPost['postType'],
+            imageUrl: updatedPost['image'],
+            tags: updatedPost['tags']?.split('|').where((t) => t.isNotEmpty).toList(),
+            commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
+            likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
+            youLiked: updatedPost['youLiked'] == 'true',
+            edited: updatedPost['edited'] == 'true',
+          );
+        }
       }
+
+      updateInList(_lostPosts);
+      updateInList(_foundPosts);
+      updateInList(_miscPosts);
+
+      _nearbyPets = [..._lostPosts, ..._foundPosts, ..._miscPosts]
+          .map((post) => post.toPetMap())
+          .toList();
     });
   }
 
@@ -597,24 +620,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ? Colors.white.withValues(alpha: 0.05)
         : Colors.black.withValues(alpha: 0.03);
 
-    final filteredPosts = _selectedCategory == 'all'
-        ? _recommendedPosts
-        : _recommendedPosts.where((post) {
-            return post.tags.any(
-              (tag) => tag.toLowerCase() == _selectedCategory.toLowerCase(),
-            );
-          }).toList();
+    List<CommunityPost> filterPosts(List<CommunityPost> posts) {
+      if (_selectedCategory == 'all') return posts;
+      return posts.where((post) {
+        return post.tags.any(
+          (tag) => tag.toLowerCase() == _selectedCategory.toLowerCase(),
+        );
+      }).toList();
+    }
 
-    final recommendedPostMaps = filteredPosts
-        .map((post) => post.toFeedMap())
-        .toList();
+    final filteredLost = filterPosts(_lostPosts).map((p) => p.toFeedMap()).toList();
+    final filteredFound = filterPosts(_foundPosts).map((p) => p.toFeedMap()).toList();
+    final filteredMisc = filterPosts(_miscPosts).map((p) => p.toFeedMap()).toList();
+
+    final hasAnyPosts = filteredLost.isNotEmpty || filteredFound.isNotEmpty || filteredMisc.isNotEmpty;
 
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
         child: Container(
           color: glassColor,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -665,7 +691,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 22),
               Text(
-                recommendedPostMaps.isEmpty ? 'Ideas for you' : 'What\'s New',
+                !hasAnyPosts ? 'Ideas for you' : 'What\'s New',
                 style: TextStyle(
                   color: headerTextColor,
                   fontSize: 23,
@@ -684,39 +710,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             strokeWidth: 3,
                           ),
                         )
-                      : (recommendedPostMaps.isNotEmpty
-                          ? buildCommunityPostsFeed(
-                              currentUserId: _currentUser?.id,
-                              onCommentTap: (postMap) async {
-                                final result = await Navigator.push<Map<String, String>>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        UnifiedPostDetailScreen(post: postMap),
-                                  ),
-                                );
-                                _handlePostUpdate(result);
-                              },
-                              onPostTap: (postMap) async {
-                                final result = await Navigator.push<Map<String, String>>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        UnifiedPostDetailScreen(post: postMap),
-                                  ),
-                                );
-                                _handlePostUpdate(result);
-                              },
-                              posts: recommendedPostMaps,
-                              searchQuery: '',
-                            )
-                          : buildPetList(
+                      : (!hasAnyPosts
+                          ? buildPetList(
                               onPetTap: (pet) async {
                                 final result = await Navigator.push<Map<String, String>>(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        UnifiedPostDetailScreen(post: pet),
+                                    builder: (_) => UnifiedPostDetailScreen(post: pet),
                                   ),
                                 );
                                 _handlePostUpdate(result);
@@ -724,11 +724,225 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               pets: _visiblePets,
                               searchQuery: '',
                               selectedCategory: _selectedCategory,
+                            )
+                          : CustomScrollView(
+                              slivers: [
+                                if (filteredLost.isNotEmpty)
+                                  SliverToBoxAdapter(
+                                    child: _HorizontalCarousel(
+                                      title: 'Lost Pets',
+                                      posts: filteredLost,
+                                      tintColor: Colors.redAccent.withValues(alpha: 0.12),
+                                      onPostTap: (postMap) async {
+                                        final result = await Navigator.push<Map<String, String>>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                                          ),
+                                        );
+                                        _handlePostUpdate(result);
+                                      },
+                                    ),
+                                  ),
+                                if (filteredFound.isNotEmpty)
+                                  SliverToBoxAdapter(
+                                    child: _HorizontalCarousel(
+                                      title: 'Found Pets',
+                                      posts: filteredFound,
+                                      tintColor: Colors.green.withValues(alpha: 0.12),
+                                      onPostTap: (postMap) async {
+                                        final result = await Navigator.push<Map<String, String>>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                                          ),
+                                        );
+                                        _handlePostUpdate(result);
+                                      },
+                                    ),
+                                  ),
+                                if (filteredLost.isNotEmpty || filteredFound.isNotEmpty)
+                                  SliverToBoxAdapter(
+                                    child: Padding(
+                                              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+                                      child: Text(
+                                        'Community Feed',
+                                        style: TextStyle(
+                                          color: headerTextColor,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (filteredMisc.isNotEmpty)
+                                  SliverFillRemaining(
+                                    hasScrollBody: true,
+                                    child: buildCommunityPostsFeed(
+                                      currentUserId: _currentUser?.id,
+                                      onCommentTap: (postMap) async {
+                                        final result = await Navigator.push<Map<String, String>>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                                          ),
+                                        );
+                                        _handlePostUpdate(result);
+                                      },
+                                      onPostTap: (postMap) async {
+                                        final result = await Navigator.push<Map<String, String>>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => UnifiedPostDetailScreen(post: postMap),
+                                          ),
+                                        );
+                                        _handlePostUpdate(result);
+                                      },
+                                      posts: filteredMisc,
+                                      searchQuery: '',
+                                    ),
+                                  ),
+                              ],
                             )),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HorizontalCarousel extends StatefulWidget {
+  final String title;
+  final List<Map<String, String>> posts;
+  final Color tintColor;
+  final ValueChanged<Map<String, String>> onPostTap;
+
+  const _HorizontalCarousel({
+    required this.title,
+    required this.posts,
+    required this.tintColor,
+    required this.onPostTap,
+  });
+
+  @override
+  State<_HorizontalCarousel> createState() => _HorizontalCarouselState();
+}
+
+class _HorizontalCarouselState extends State<_HorizontalCarousel> {
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.88);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final headerTextColor = isDark ? const Color(0xFFE5E4E2) : AppColors.seaBlue;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12.0, bottom: 8.0),
+          child: Text(
+            widget.title,
+            style: TextStyle(
+              color: headerTextColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 180,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: widget.posts.length,
+            itemBuilder: (context, index) {
+              return AnimatedBuilder(
+                animation: _pageController,
+                builder: (context, child) {
+                  double value = 1.0;
+                  if (_pageController.position.haveDimensions) {
+                    value = _pageController.page! - index;
+                    value = (1 - (value.abs() * 0.04)).clamp(0.92, 1.0);
+                  }
+                  return Transform.scale(
+                    scale: value,
+                    child: child,
+                  );
+                },
+                child: _buildCard(widget.posts[index], theme, isDark),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCard(Map<String, String> post, ThemeData theme, bool isDark) {
+    return GestureDetector(
+      onTap: () => widget.onPostTap(post),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: widget.tintColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+          ),
+        ),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              post['title'] ?? 'Untitled',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Text(
+                post['description'] ?? '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Posted ${post['posted'] ?? 'Recently'}',
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

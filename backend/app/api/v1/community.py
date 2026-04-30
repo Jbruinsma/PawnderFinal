@@ -30,6 +30,7 @@ from app.schemas.post import (
 from app.services.feed_engine import generate_algorithmic_feed
 from app.utils.formatting_utils import format_post_with_stats, format_neighborhood_with_stats
 from crud.crud_post import update_user_post
+from models import Post
 
 router = APIRouter(
     prefix="/community",
@@ -68,14 +69,32 @@ async def retrieve_initial_feed(
         for tag in row.Post.tags
     }
 
+    found_pet_posts = []
+    lost_pet_posts = []
+    misc_posts = []
+
+    for row in raw_posts:
+        post_type = row.Post.post_type
+
+        if post_type == "Found Pet":
+            found_pet_posts.append(row)
+
+        elif post_type == "Lost Pet":
+            lost_pet_posts.append(row)
+
+        else:
+            misc_posts.append(row)
+
     return {
         "communities": [
             format_neighborhood_with_stats(row) for row in communities
         ],
         "applicable_tags": list(applicable_tags),
-        "posts": [
-            format_post_with_stats(row) for row in raw_posts
-        ]
+        "posts": {
+            "lost": [ format_post_with_stats(row) for row in lost_pet_posts ],
+            "found": [ format_post_with_stats(row) for row in found_pet_posts ],
+            "misc": [ format_post_with_stats(row) for row in misc_posts ]
+        }
     }
 
 
