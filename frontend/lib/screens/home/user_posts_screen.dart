@@ -70,9 +70,15 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index != -1) {
         _posts[index] = _posts[index].copyWith(
+          title: updatedPost['title'],
+          description: updatedPost['description'],
+          postType: updatedPost['postType'],
+          imageUrl: updatedPost['image'],
+          tags: updatedPost['tags']?.split('|').where((t) => t.isNotEmpty).toList(),
           likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
           commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
           youLiked: updatedPost['youLiked'] == 'true',
+          edited: updatedPost['edited'] == 'true',
         );
       }
     });

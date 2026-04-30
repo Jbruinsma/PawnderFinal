@@ -323,9 +323,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final recIndex = _recommendedPosts.indexWhere((p) => p.id == postId);
       if (recIndex != -1) {
         _recommendedPosts[recIndex] = _recommendedPosts[recIndex].copyWith(
+          title: updatedPost['title'],
+          description: updatedPost['description'],
+          postType: updatedPost['postType'],
+          imageUrl: updatedPost['image'],
+          tags: updatedPost['tags']?.split('|').where((t) => t.isNotEmpty).toList(),
           commentCount: int.tryParse(updatedPost['commentCount'] ?? '0') ?? 0,
           likeCount: int.tryParse(updatedPost['likeCount'] ?? '0') ?? 0,
           youLiked: updatedPost['youLiked'] == 'true',
+          edited: updatedPost['edited'] == 'true',
         );
         _nearbyPets = _recommendedPosts.map((post) => post.toPetMap()).toList();
       }

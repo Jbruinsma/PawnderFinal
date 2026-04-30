@@ -31,6 +31,8 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   final _communityService = CommunityService();
   final _commentController = TextEditingController();
 
+  late Map<String, String> _post;
+
   bool _isBookmarked = false;
   bool _isBookmarking = false;
   bool _isCheckingBookmark = true;
@@ -50,10 +52,11 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _likeCount = int.tryParse(widget.post['likeCount'] ?? '0') ?? 0;
-    _commentCount = int.tryParse(widget.post['commentCount'] ?? '0') ?? 0;
-    _youLiked = widget.post['youLiked'] == 'true';
-    _edited = widget.post['edited'] == 'true';
+    _post = Map<String, String>.from(widget.post);
+    _likeCount = int.tryParse(_post['likeCount'] ?? '0') ?? 0;
+    _commentCount = int.tryParse(_post['commentCount'] ?? '0') ?? 0;
+    _youLiked = _post['youLiked'] == 'true';
+    _edited = _post['edited'] == 'true';
 
     _initializeData();
   }
@@ -71,7 +74,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
         setState(() => _currentUserId = user.id);
       }
 
-      final commId = widget.post['communityId'];
+      final commId = _post['communityId'];
       if (commId != null && commId.isNotEmpty) {
         _fetchCommunity(commId);
       }
@@ -102,7 +105,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   Future<void> _checkIfBookmarked(String userId) async {
     try {
       final bookmarked = await _postService.isPostBookmarked(
-        postId: widget.post['id'] ?? '',
+        postId: _post['id'] ?? '',
         userId: userId,
       );
       if (mounted) setState(() => _isBookmarked = bookmarked);
@@ -115,7 +118,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   Future<void> _loadComments() async {
     try {
       final comments = await _postService.getPostComments(
-        postId: widget.post['id'] ?? '',
+        postId: _post['id'] ?? '',
       );
       if (mounted) {
         setState(() {
@@ -137,13 +140,13 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
       final user = await _authService.getCurrentUser();
       if (_isBookmarked) {
         await _postService.removeBookmark(
-          postId: widget.post['id'] ?? '',
+          postId: _post['id'] ?? '',
           userId: user.id,
         );
         if (mounted) setState(() => _isBookmarked = false);
       } else {
         await _postService.bookmarkPost(
-          postId: widget.post['id'] ?? '',
+          postId: _post['id'] ?? '',
           userId: user.id,
         );
         if (mounted) setState(() => _isBookmarked = true);
@@ -156,7 +159,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
 
   Future<void> _togglePostLike() async {
     final shouldLike = !_youLiked;
-    final postId = widget.post['id'];
+    final postId = _post['id'];
     if (postId == null) return;
 
     setState(() {
@@ -184,7 +187,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
 
   Future<void> _toggleCommentLike(PostComment comment) async {
     final shouldLike = !comment.youLiked;
-    final postId = widget.post['id'];
+    final postId = _post['id'];
     if (postId == null) return;
 
     setState(() {
@@ -234,7 +237,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
 
   Future<void> _submitComment() async {
     final content = _commentController.text.trim();
-    final postId = widget.post['id'];
+    final postId = _post['id'];
 
     if (content.isEmpty || _isSubmittingComment || postId == null) return;
 
@@ -261,14 +264,14 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   }
 
   Future<void> _openConversation() async {
-    final participantId = widget.post['authorId'];
+    final participantId = _post['authorId'];
     if (participantId == null || participantId.isEmpty) return;
 
-    final author = widget.post['author'] ?? 'Pet Owner';
+    final author = _post['author'] ?? 'Pet Owner';
     final thread = _messageService.buildDirectThread(
       participantId: participantId,
       participantName: author,
-      title: widget.post['title'] ?? 'Pet post conversation',
+      title: _post['title'] ?? 'Pet post conversation',
       subtitle: 'Community contact thread',
     );
 
@@ -281,21 +284,22 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   }
 
   Future<void> _navigateToEdit() async {
-    final didUpdate = await Navigator.push<bool>(
+    final updatedData = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute(
         builder: (_) => ListingScreen(
-          authorId: widget.post['authorId'],
-          communityId: widget.post['communityId'],
-          existingPost: widget.post,
+          authorId: _post['authorId'],
+          communityId: _post['communityId'],
+          existingPost: _post,
         ),
       ),
     );
 
-    if (didUpdate == true && mounted) {
-      final updatedPost = Map<String, String>.from(widget.post);
-      updatedPost['action'] = 'refresh';
-      Navigator.pop(context, updatedPost);
+    if (updatedData is Map<String, String> && mounted) {
+      setState(() {
+        _post = updatedData;
+        _edited = _post['edited'] == 'true';
+      });
     }
   }
 
@@ -308,7 +312,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   }
 
   void _handleBack() {
-    final updatedPost = Map<String, String>.from(widget.post);
+    final updatedPost = Map<String, String>.from(_post);
     updatedPost['likeCount'] = _likeCount.toString();
     updatedPost['youLiked'] = _youLiked.toString();
     updatedPost['commentCount'] = _commentCount.toString();
@@ -319,7 +323,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final post = widget.post;
+    final post = _post;
     final hasImage = (post['image'] ?? '').trim().isNotEmpty;
     final tags = (post['tags'] ?? '')
         .split('|')
