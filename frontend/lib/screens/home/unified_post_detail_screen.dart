@@ -436,18 +436,16 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                           decoration: BoxDecoration(
-                                            color: isDark
-                                                ? Colors.black.withValues(alpha: 0.5)
-                                                : Colors.white.withValues(alpha: 0.6),
+                                            color: _StatusBadge.getBgColor(post['postType'] ?? 'Post', theme).withValues(alpha: isDark ? 0.3 : 0.6),
                                             borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
-                                              color: theme.dividerColor.withValues(alpha: 0.5),
+                                              color: _StatusBadge.getTextColor(post['postType'] ?? 'Post', theme).withValues(alpha: 0.5),
                                             ),
                                           ),
                                           child: Text(
-                                            (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
+                                            post['postType'] ?? 'Post',
                                             style: TextStyle(
-                                              color: theme.colorScheme.onSurface,
+                                              color: _StatusBadge.getTextColor(post['postType'] ?? 'Post', theme),
                                               fontWeight: FontWeight.w900,
                                             ),
                                           ),
@@ -594,7 +592,7 @@ class _UnifiedPostDetailScreenState extends State<UnifiedPostDetailScreen> {
                                 children: [
                                   if (!hasImage)
                                     _StatusBadge(
-                                      label: (post['section'] ?? '') == 'found' ? 'Found' : 'Lost',
+                                      label: post['postType'] ?? 'Post',
                                     ),
                                   ...tags.map((tag) => ClipRRect(
                                     borderRadius: BorderRadius.circular(999),
@@ -1089,23 +1087,45 @@ class _StatusBadge extends StatelessWidget {
 
   const _StatusBadge({required this.label});
 
+  static Color getTextColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    if (t == 'lost pet') return Colors.redAccent;
+    if (t == 'report') return Colors.orangeAccent;
+    if (t == 'found pet') return Colors.green;
+    if (t == 'adoption') return Colors.deepPurpleAccent;
+    if (t == 'discussion') return Colors.blueAccent;
+    return theme.colorScheme.onSurface;
+  }
+
+  static Color getBgColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (t == 'lost pet') return Colors.redAccent.withValues(alpha: 0.12);
+    if (t == 'report') return Colors.orangeAccent.withValues(alpha: 0.12);
+    if (t == 'found pet') return Colors.green.withValues(alpha: 0.12);
+    if (t == 'adoption') return Colors.deepPurpleAccent.withValues(alpha: 0.12);
+    if (t == 'discussion') return Colors.blueAccent.withValues(alpha: 0.12);
+
+    return isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.08);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.12)
-            : Colors.black.withValues(alpha: 0.08),
+        color: getBgColor(label, theme),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: theme.colorScheme.onSurface,
+          color: getTextColor(label, theme),
           fontSize: 12,
           fontWeight: FontWeight.w900,
         ),
