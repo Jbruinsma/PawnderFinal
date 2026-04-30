@@ -30,6 +30,7 @@ import 'package:pawnder_app/widgets/build_category_row.dart';
 import 'package:pawnder_app/widgets/build_community_posts_feed.dart';
 import 'package:pawnder_app/widgets/build_pet_list.dart';
 import 'package:pawnder_app/widgets/location_lock_overlay.dart';
+import 'package:pawnder_app/widgets/pet_image.dart';
 import 'package:pawnder_app/widgets/search_bar.dart';
 
 const List<String> _defaultCategories = ['Dogs', 'Cats', 'Birds'];
@@ -732,7 +733,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     child: _HorizontalCarousel(
                                       title: 'Lost Pets',
                                       posts: filteredLost,
-                                      tintColor: Colors.redAccent.withValues(alpha: 0.12),
                                       onPostTap: (postMap) async {
                                         final result = await Navigator.push<Map<String, String>>(
                                           context,
@@ -749,7 +749,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     child: _HorizontalCarousel(
                                       title: 'Found Pets',
                                       posts: filteredFound,
-                                      tintColor: Colors.green.withValues(alpha: 0.12),
                                       onPostTap: (postMap) async {
                                         final result = await Navigator.push<Map<String, String>>(
                                           context,
@@ -764,7 +763,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 if (filteredLost.isNotEmpty || filteredFound.isNotEmpty)
                                   SliverToBoxAdapter(
                                     child: Padding(
-                                              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+                                      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
                                       child: Text(
                                         'Community Feed',
                                         style: TextStyle(
@@ -817,13 +816,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 class _HorizontalCarousel extends StatefulWidget {
   final String title;
   final List<Map<String, String>> posts;
-  final Color tintColor;
   final ValueChanged<Map<String, String>> onPostTap;
 
   const _HorizontalCarousel({
     required this.title,
     required this.posts,
-    required this.tintColor,
     required this.onPostTap,
   });
 
@@ -856,7 +853,7 @@ class _HorizontalCarouselState extends State<_HorizontalCarousel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 12.0, bottom: 8.0),
+          padding: const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 18.0),
           child: Text(
             widget.title,
             style: TextStyle(
@@ -867,7 +864,7 @@ class _HorizontalCarouselState extends State<_HorizontalCarousel> {
           ),
         ),
         SizedBox(
-          height: 180,
+          height: 480,
           child: PageView.builder(
             controller: _pageController,
             itemCount: widget.posts.length,
@@ -885,7 +882,13 @@ class _HorizontalCarouselState extends State<_HorizontalCarousel> {
                     child: child,
                   );
                 },
-                child: _buildCard(widget.posts[index], theme, isDark),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
+                  child: _CarouselPostCard(
+                    onTap: () => widget.onPostTap(widget.posts[index]),
+                    post: widget.posts[index],
+                  ),
+                ),
               );
             },
           ),
@@ -893,56 +896,309 @@ class _HorizontalCarouselState extends State<_HorizontalCarousel> {
       ],
     );
   }
+}
 
-  Widget _buildCard(Map<String, String> post, ThemeData theme, bool isDark) {
-    return GestureDetector(
-      onTap: () => widget.onPostTap(post),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
+class _CarouselPostCard extends StatelessWidget {
+  final VoidCallback onTap;
+  final Map<String, String> post;
+
+  const _CarouselPostCard({
+    required this.onTap,
+    required this.post,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final youLiked = post['youLiked'] == 'true';
+    final hasImage = (post['image'] ?? '').trim().isNotEmpty;
+    final tags = (post['tags'] ?? '')
+        .split('|')
+        .where((tag) => tag.trim().isNotEmpty)
+        .toList();
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: DecoratedBox(
         decoration: BoxDecoration(
-          color: widget.tintColor,
+          border: Border.all(color: theme.dividerColor),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-          ),
+          color: isDark ? AppColors.darkBackground : theme.cardColor,
         ),
-        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              post['title'] ?? 'Untitled',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+            if (hasImage)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 1.55,
+                  child: PetImage(
+                    height: double.infinity,
+                    image: post['image'],
+                    preserveSubject: true,
+                    seed: post['id'] ?? post['title'] ?? '',
+                    width: double.infinity,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
             Expanded(
-              child: Text(
-                post['description'] ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 6),
+                              Text(
+                                post['title'] ?? 'Untitled',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _RoundCardAction(
+                              icon: youLiked
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              iconColor: youLiked
+                                  ? Colors.redAccent
+                                  : theme.colorScheme.onSurface,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if ((post['description'] ?? '').trim().isNotEmpty) ...[
+                      Text(
+                        post['description'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      runSpacing: 6,
+                      spacing: 6,
+                      children: [
+                        _StatusBadge(
+                          label: post['postType'] ?? 'Post',
+                        ),
+                        ...tags.take(3).map((tag) => _TagChip(tag: tag)),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Posted ${post['posted'] ?? 'Recently'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _InlineMeta(
+                          icon: Icons.mode_comment_outlined,
+                          label: post['commentCount'] ?? '0',
+                        ),
+                        const SizedBox(width: 12),
+                        _InlineMeta(
+                          icon: youLiked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          iconColor: youLiked ? Colors.redAccent : null,
+                          label: post['likeCount'] ?? '0',
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Posted ${post['posted'] ?? 'Recently'}',
-              style: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineMeta extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String label;
+
+  const _InlineMeta({required this.icon, this.iconColor, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: iconColor ?? theme.colorScheme.onSurfaceVariant,
+          size: 15,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundCardAction extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final VoidCallback? onTap;
+
+  const _RoundCardAction({required this.icon, this.iconColor, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
+            shape: BoxShape.circle,
+          ),
+          height: 36,
+          width: 36,
+          child: Icon(
+            icon,
+            color: iconColor ?? theme.colorScheme.onSurface,
+            size: 19,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+
+  const _StatusBadge({required this.label});
+
+  Color _getTextColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    if (t == 'lost pet') return Colors.redAccent;
+    if (t == 'report') return Colors.orangeAccent;
+    if (t == 'found pet') return Colors.green;
+    if (t == 'adoption') return Colors.deepPurpleAccent;
+    if (t == 'discussion') return Colors.blueAccent;
+    return theme.colorScheme.onSurface;
+  }
+
+  Color _getBgColor(String type, ThemeData theme) {
+    final t = type.toLowerCase();
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (t == 'lost pet') return Colors.redAccent.withValues(alpha: 0.12);
+    if (t == 'report') return Colors.orangeAccent.withValues(alpha: 0.12);
+    if (t == 'found pet') return Colors.green.withValues(alpha: 0.12);
+    if (t == 'adoption') return Colors.deepPurpleAccent.withValues(alpha: 0.12);
+    if (t == 'discussion') return Colors.blueAccent.withValues(alpha: 0.12);
+
+    return isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.08);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(7),
+        color: _getBgColor(label, theme),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: _getTextColor(label, theme),
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  final String tag;
+
+  const _TagChip({required this.tag});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: isDark ? AppColors.darkElevated : const Color(0xFFEDEFF1),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Text(
+        tag,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
