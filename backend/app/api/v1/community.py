@@ -30,7 +30,6 @@ from app.schemas.post import (
 from app.services.feed_engine import generate_algorithmic_feed
 from app.utils.formatting_utils import format_post_with_stats, format_neighborhood_with_stats
 from crud.crud_post import update_user_post
-from models import Post
 
 router = APIRouter(
     prefix="/community",
