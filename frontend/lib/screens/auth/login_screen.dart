@@ -17,23 +17,23 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _submitLogin() async {
-    final email = _emailController.text.trim();
+    final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      _showMessage('Email and password are required.');
+    if (identifier.isEmpty || password.isEmpty) {
+      _showMessage('Email/Username and password are required.');
       return;
     }
 
@@ -42,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.login(email: email, password: password);
+      await _authService.login(identifier: identifier, password: password);
 
       if (!mounted) return;
 
@@ -110,13 +110,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 24),
                             ],
-                            _buildLabel(theme, 'Email'),
+                            _buildLabel(theme, 'Email or Username'),
                             const SizedBox(height: 8),
                             AuthInput(
-                              controller: _emailController,
+                              controller: _identifierController,
                               hintText: '',
-                              icon: Icons.mail_outline,
-                              keyboardType: TextInputType.emailAddress,
+                              icon: Icons.person_outline,
+                              keyboardType: TextInputType.text,
                               textInputAction: TextInputAction.next,
                             ),
                             const SizedBox(height: 12),
